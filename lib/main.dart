@@ -10,6 +10,7 @@ import 'services/auth_service.dart';
 import 'services/bill_service.dart';
 import 'services/payment_service.dart';
 import 'screens/splash_screen.dart';
+import 'core/theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,45 +26,31 @@ class MyApp extends StatelessWidget {
     if (baseUrl.endsWith('/')) {
       baseUrl = baseUrl.substring(0, baseUrl.length - 1);
     }
-    // Also remove any trailing spaces
     baseUrl = baseUrl.trim();
 
-    print('Base URL: $baseUrl'); // Debug
+    print('Base URL: $baseUrl');
 
     final billService = BillService(baseUrl: baseUrl);
 
     return MultiProvider(
       providers: [
-        // Services
         Provider(create: (_) => billService),
-
-        // Auth Provider first
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-
-        // Other providers
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => MenuProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
-
-        // BillProvider with PaymentService that updates when auth changes
         ChangeNotifierProxyProvider<AuthProvider, BillProvider>(
           create: (context) =>
               BillProvider(billService: billService, paymentService: null),
           update: (context, authProvider, previousBillProvider) {
             PaymentService? paymentService;
-
             if (authProvider.token != null && authProvider.token!.isNotEmpty) {
               paymentService = PaymentService(
                 baseUrl: baseUrl,
                 token: authProvider.token!,
               );
-              print('PaymentService created with token'); // Debug
-            } else {
-              print('No token available'); // Debug
             }
-
-            // Return new instance with updated payment service
             return BillProvider(
               billService: billService,
               paymentService: paymentService,
@@ -72,9 +59,12 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Restaurant POS',
+        title: 'DARS',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(primarySwatch: Colors.orange, useMaterial3: true),
+        // FIXED: Use the new theme
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.light,
         home: const SplashScreen(),
       ),
     );
