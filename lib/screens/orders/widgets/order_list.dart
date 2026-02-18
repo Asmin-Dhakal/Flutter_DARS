@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
 import '../../../providers/order_provider.dart';
+import '../edit_order/edit_order_screen.dart';
 import 'order_card.dart';
 import 'order_actions.dart';
 
@@ -12,7 +14,7 @@ class OrderList extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<OrderProvider>();
 
-    if (provider.isLoading) {
+    if (provider.isLoading && provider.filteredOrders.isEmpty) {
       return const SliverFillRemaining(
         child: Center(child: CircularProgressIndicator()),
       );
@@ -23,7 +25,7 @@ class OrderList extends StatelessWidget {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space4),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
           final order = provider.filteredOrders[index];
@@ -38,15 +40,20 @@ class OrderList extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 80,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
+          Icon(Icons.receipt_long_outlined, size: 80, color: AppColors.gray400),
+          const SizedBox(height: AppTokens.space4),
           Text(
             'No orders found',
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: AppColors.gray600),
+          ),
+          const SizedBox(height: AppTokens.space2),
+          Text(
+            'Create a new order to get started',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.gray500),
           ),
         ],
       ),
@@ -68,43 +75,46 @@ class _OrderItem extends StatelessWidget {
       background: _buildDeleteBackground(),
       confirmDismiss: (_) => _confirmDelete(context),
       onDismissed: (_) => actions.delete(order.id, order.orderNumber),
-      child: OrderCard(
-        order: order,
-        onReceive: order.status.toLowerCase() == 'notreceived'
-            ? () => actions.receive(order.id)
-            : null,
-        onComplete: order.status.toLowerCase() == 'received'
-            ? () => actions.complete(order.id)
-            : null,
-        onCancel:
-            order.status.toLowerCase() != 'cancelled' &&
-                order.status.toLowerCase() != 'completed'
-            ? () => actions.cancel(order.id)
-            : null,
-        onEdit: () => _editOrder(context, order),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppTokens.space4),
+        child: OrderCard(
+          order: order,
+          onReceive: order.status.toLowerCase() == 'notreceived'
+              ? () => actions.receive(order.id)
+              : null,
+          onComplete: order.status.toLowerCase() == 'received'
+              ? () => actions.complete(order.id)
+              : null,
+          onCancel:
+              order.status.toLowerCase() != 'cancelled' &&
+                  order.status.toLowerCase() != 'completed'
+              ? () => actions.cancel(order.id)
+              : null,
+          onEdit: () => _editOrder(context, order),
+        ),
       ),
     );
   }
 
   Widget _buildDeleteBackground() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: AppTokens.space4),
       decoration: BoxDecoration(
-        color: Colors.red.shade400,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.error.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
       ),
       alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 24),
-      child: const Column(
+      padding: const EdgeInsets.only(right: AppTokens.space6),
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.delete_outline, color: Colors.white, size: 32),
-          SizedBox(height: 4),
+          Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 28),
+          const SizedBox(height: AppTokens.space1),
           Text(
             'DELETE',
             style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+              color: AppColors.error,
+              fontWeight: FontWeight.w600,
               fontSize: 12,
             ),
           ),
@@ -118,18 +128,20 @@ class _OrderItem extends StatelessWidget {
           context: context,
           builder: (context) => AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppTokens.radiusXLarge),
             ),
             title: const Text('Delete Order?'),
-            content: const Text('This will permanently delete this order.'),
+            content: const Text(
+              'This will permanently delete this order. This action cannot be undone.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancel'),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
                 child: const Text('Delete'),
               ),
             ],
@@ -139,7 +151,9 @@ class _OrderItem extends StatelessWidget {
   }
 
   void _editOrder(BuildContext context, Order order) {
-    // Navigate to edit screen
-    Navigator.pushNamed(context, '/edit-order', arguments: order);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EditOrderScreen(order: order)),
+    );
   }
 }

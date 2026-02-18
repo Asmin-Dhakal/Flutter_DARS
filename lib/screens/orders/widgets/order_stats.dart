@@ -20,7 +20,7 @@ class OrderStats extends StatelessWidget {
             icon: Icons.receipt_long,
             color: Colors.blue,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           _buildCard(
             label: 'Pending',
             value:
@@ -28,7 +28,7 @@ class OrderStats extends StatelessWidget {
             icon: Icons.pending_actions,
             color: Colors.orange,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           _buildCard(
             label: 'Completed',
             value:
@@ -49,27 +49,28 @@ class OrderStats extends StatelessWidget {
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 4),
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
             Text(
               value,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
+            const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
         ),

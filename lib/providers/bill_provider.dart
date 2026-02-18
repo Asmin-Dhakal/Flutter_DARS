@@ -43,7 +43,7 @@ class BillProvider extends ChangeNotifier {
     }
 
     // Check if token is empty
-    if (_paymentService!.token.isEmpty) {
+    if (_paymentService.token.isEmpty) {
       _error = 'Authentication token is missing. Please login again.';
       notifyListeners();
       return;
@@ -54,7 +54,7 @@ class BillProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _paymentMethods = await _paymentService!.getPaymentMethods();
+      _paymentMethods = await _paymentService.getPaymentMethods();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -87,7 +87,7 @@ class BillProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _paymentService!.markBillAsPaid(
+      final result = await _paymentService.markBillAsPaid(
         billId: billId,
         paymentMethodId: paymentMethodId,
         notes: notes,

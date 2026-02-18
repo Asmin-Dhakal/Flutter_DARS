@@ -9,8 +9,7 @@ import 'widgets/add_customer_items_modal.dart';
 class CreateBillScreen extends StatefulWidget {
   final UnbilledCustomer initialCustomer;
 
-  const CreateBillScreen({Key? key, required this.initialCustomer})
-    : super(key: key);
+  const CreateBillScreen({super.key, required this.initialCustomer});
 
   @override
   State<CreateBillScreen> createState() => _CreateBillScreenState();
@@ -432,7 +431,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           // Customer Items
           ..._customerItems.entries.map((entry) {
             return _buildCustomerSection(entry.key, entry.value, theme);
-          }).toList(),
+          }),
 
           const SizedBox(height: 24),
 

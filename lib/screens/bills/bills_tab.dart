@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/bill.dart';
 import '../../providers/bill_provider.dart';
 import '../../services/bill_service.dart';
@@ -10,7 +11,7 @@ import 'widgets/status_filter.dart';
 import 'create_bill_screen.dart';
 
 class BillsTab extends StatefulWidget {
-  const BillsTab({Key? key}) : super(key: key);
+  const BillsTab({super.key});
 
   @override
   State<BillsTab> createState() => _BillsTabState();
@@ -130,21 +131,58 @@ class _BillsTabState extends State<BillsTab> {
     final billProvider = context.watch<BillProvider>();
 
     return Scaffold(
-      body: Column(
-        children: [
-          // Status Filter
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: StatusFilter(
-              selectedStatus: _selectedStatus,
-              statusOptions: _statusOptions,
-              onStatusChanged: _onStatusChanged,
+      backgroundColor: AppColors.gray100,
+      body: RefreshIndicator(
+        onRefresh: _loadBills,
+        color: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            _buildAppBar(),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space4,
+                  vertical: AppTokens.space4,
+                ),
+                child: StatusFilter(
+                  selectedStatus: _selectedStatus,
+                  statusOptions: _statusOptions,
+                  onStatusChanged: _onStatusChanged,
+                ),
+              ),
             ),
-          ),
-
-          // Bills List
-          Expanded(child: _buildBody(billProvider)),
-        ],
+            SliverToBoxAdapter(child: SizedBox(height: AppTokens.space2)),
+            if (billProvider.isLoading && billProvider.bills.isEmpty)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (billProvider.bills.isEmpty)
+              SliverFillRemaining(child: EmptyBillsState(onCreateBill: _showCreateBillFlow))
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final bill = billProvider.bills[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTokens.space4,
+                      ),
+                      child: BillCard(
+                        bill: bill,
+                        onDelete: () => _deleteBill(bill),
+                        onPay: () => _onPaymentSuccess(bill),
+                        onPayWithBill: (b) => _onPaymentSuccess(b),
+                      ),
+                    );
+                  },
+                  childCount: billProvider.bills.length,
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateBillFlow,
@@ -154,30 +192,40 @@ class _BillsTabState extends State<BillsTab> {
     );
   }
 
-  Widget _buildBody(BillProvider provider) {
-    if (provider.isLoading && provider.bills.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (provider.bills.isEmpty) {
-      return EmptyBillsState(onCreateBill: _showCreateBillFlow);
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadBills,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: provider.bills.length,
-        itemBuilder: (context, index) {
-          final bill = provider.bills[index];
-          return BillCard(
-            bill: bill,
-            onDelete: () => _deleteBill(bill),
-            onPay: () => _onPaymentSuccess(bill),
-            onPayWithBill: (b) => _onPaymentSuccess(b),
-          );
-        },
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      expandedHeight: 100,
+      floating: true,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: AppColors.surface,
+      surfaceTintColor: AppColors.surface,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.space4,
+          vertical: AppTokens.space4,
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Bills',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+            ),
+            Text(
+              'Manage customer bills',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
 }

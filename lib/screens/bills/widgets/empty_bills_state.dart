@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 class EmptyBillsState extends StatelessWidget {
   final VoidCallback onCreateBill;
 
-  const EmptyBillsState({Key? key, required this.onCreateBill})
-    : super(key: key);
+  const EmptyBillsState({super.key, required this.onCreateBill});
 
   @override
   Widget build(BuildContext context) {

@@ -7,7 +7,7 @@ import '../../../providers/bill_provider.dart';
 class PaymentModal extends StatefulWidget {
   final Bill bill;
 
-  const PaymentModal({Key? key, required this.bill}) : super(key: key);
+  const PaymentModal({super.key, required this.bill});
 
   @override
   State<PaymentModal> createState() => _PaymentModalState();

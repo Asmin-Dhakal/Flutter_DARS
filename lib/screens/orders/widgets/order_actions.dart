@@ -1,220 +1,182 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/modern_dialog.dart';
+import '../../../core/widgets/modern_snackbar.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
 
+/// Modern, modular order actions following Material 3 design
+/// Optimized for low-end devices with minimal animations
 class OrderActions {
   final BuildContext context;
   bool _isProcessing = false;
 
   OrderActions(this.context);
 
-  Future<void> receive(String orderId) async {
-    await _showConfirmDialog(
+  // Action configurations using your theme colors
+  static final _actionConfigs = {
+    'receive': _ActionConfig(
       title: 'Receive Order',
-      icon: Icons.check_circle,
-      iconColor: Colors.green,
+      icon: Icons.check_circle_outline,
+      color: AppColors.success,
       message: 'Mark this order as received?',
       confirmText: 'Confirm Receive',
-      confirmColor: Colors.green,
-      action: () =>
-          OrderService.updateOrderStatus(orderId: orderId, status: 'received'),
       successMessage: 'Order marked as received',
-      successColor: Colors.green,
-    );
-  }
-
-  Future<void> complete(String orderId) async {
-    await _showConfirmDialog(
+    ),
+    'complete': _ActionConfig(
       title: 'Complete Order',
       icon: Icons.done_all,
-      iconColor: Colors.blue,
+      color: AppColors.info,
       message: 'Mark this order as completed?',
       confirmText: 'Complete Order',
-      confirmColor: Colors.blue,
-      action: () =>
-          OrderService.updateOrderStatus(orderId: orderId, status: 'completed'),
       successMessage: 'Order completed',
-      successColor: Colors.blue,
-    );
-  }
-
-  Future<void> cancel(String orderId) async {
-    await _showConfirmDialog(
+    ),
+    'cancel': _ActionConfig(
       title: 'Cancel Order',
-      icon: Icons.cancel,
-      iconColor: Colors.red,
+      icon: Icons.cancel_outlined,
+      color: AppColors.error,
       message: 'Are you sure you want to cancel this order?',
       confirmText: 'Yes, Cancel',
-      confirmColor: Colors.red,
-      warning: 'This action cannot be undone.',
-      action: () =>
-          OrderService.updateOrderStatus(orderId: orderId, status: 'cancelled'),
       successMessage: 'Order cancelled',
-      successColor: Colors.red,
-    );
-  }
-
-  Future<void> delete(String orderId, String orderNumber) async {
-    await _showConfirmDialog(
-      title: 'Delete Order',
-      icon: Icons.delete_forever,
-      iconColor: Colors.red,
-      message: 'Delete order $orderNumber?',
-      confirmText: 'Delete',
-      confirmColor: Colors.red,
       warning: 'This action cannot be undone.',
-      action: () => OrderService.deleteOrder(orderId),
+      isDestructive: true,
+    ),
+    'delete': _ActionConfig(
+      title: 'Delete Order',
+      icon: Icons.delete_outline,
+      color: AppColors.error,
+      message: 'Delete order {orderNumber}?',
+      confirmText: 'Delete',
       successMessage: 'Order deleted',
-      successColor: Colors.green,
-    );
-  }
+      warning: 'This action cannot be undone.',
+      isDestructive: true,
+    ),
+  };
 
-  Future<void> _showConfirmDialog({
-    required String title,
-    required IconData icon,
-    required Color iconColor,
-    required String message,
-    required String confirmText,
-    required MaterialColor confirmColor,
-    String? warning,
-    required Future<dynamic> Function() action,
-    required String successMessage,
-    required MaterialColor successColor,
+  Future<void> receive(String orderId) => _execute(
+    actionKey: 'receive',
+    orderId: orderId,
+    apiCall: () =>
+        OrderService.updateOrderStatus(orderId: orderId, status: 'received'),
+  );
+
+  Future<void> complete(String orderId) => _execute(
+    actionKey: 'complete',
+    orderId: orderId,
+    apiCall: () =>
+        OrderService.updateOrderStatus(orderId: orderId, status: 'completed'),
+  );
+
+  Future<void> cancel(String orderId) => _execute(
+    actionKey: 'cancel',
+    orderId: orderId,
+    apiCall: () =>
+        OrderService.updateOrderStatus(orderId: orderId, status: 'cancelled'),
+  );
+
+  Future<void> delete(String orderId, String orderNumber) => _execute(
+    actionKey: 'delete',
+    orderId: orderId,
+    orderNumber: orderNumber,
+    apiCall: () => OrderService.deleteOrder(orderId),
+  );
+
+  /// Core execution flow with loading state and error handling
+  Future<void> _execute({
+    required String actionKey,
+    required String orderId,
+    String? orderNumber,
+    required Future<dynamic> Function() apiCall,
   }) async {
+    if (_isProcessing) return;
+
+    final config = _actionConfigs[actionKey]!;
+
+    // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 20))),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(message),
-            if (warning != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.red.shade700,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        warning,
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: confirmColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(confirmText),
-          ),
-        ],
+      barrierDismissible: false, // Prevent accidental dismissal
+      builder: (_) => ModernConfirmDialog(
+        title: config.title,
+        icon: config.icon,
+        iconColor: config.color,
+        message: orderNumber != null
+            ? config.message.replaceAll('{orderNumber}', orderNumber)
+            : config.message,
+        confirmText: config.confirmText,
+        confirmColor: config.color,
+        warning: config.warning,
+        isDestructive: config.isDestructive,
       ),
     );
 
-    if (confirmed != true || _isProcessing) return;
+    if (confirmed != true) return;
 
     _isProcessing = true;
-
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    _showLoading();
 
     try {
-      await action();
+      await apiCall();
 
       if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop(); // Hide loading
+      _hideLoading();
 
       if (!context.mounted) return;
+      ModernSnackBar.success(context, config.successMessage);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Text(successMessage),
-            ],
-          ),
-          backgroundColor: successColor.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-
+      // Refresh provider
       context.read<OrderProvider>().loadOrders();
     } catch (e) {
       if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop(); // Hide loading
+      _hideLoading();
 
       if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      ModernSnackBar.error(context, 'Error: ${e.toString()}');
     } finally {
       _isProcessing = false;
     }
   }
+
+  /// Lightweight loading indicator optimized for low-end devices
+  void _showLoading() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: AppColors.gray900.withOpacity(0.3),
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2, // Thinner = less rendering overhead
+          color: AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  void _hideLoading() {
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+}
+
+/// Configuration for each action type
+class _ActionConfig {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String message;
+  final String confirmText;
+  final String successMessage;
+  final String? warning;
+  final bool isDestructive;
+
+  const _ActionConfig({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.message,
+    required this.confirmText,
+    required this.successMessage,
+    this.warning,
+    this.isDestructive = false,
+  });
 }

@@ -9,12 +9,12 @@ class BillCard extends StatelessWidget {
   final Function(Bill)? onPayWithBill;
 
   const BillCard({
-    Key? key,
+    super.key,
     required this.bill,
     this.onDelete,
     this.onPay,
     this.onPayWithBill,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
