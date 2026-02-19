@@ -17,10 +17,12 @@ class StatusFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSmall = MediaQuery.of(context).size.width < 360;
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTokens.space3,
-        vertical: AppTokens.space2,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmall ? 12 : AppTokens.space3,
+        vertical: isSmall ? 8 : AppTokens.space2,
       ),
       decoration: BoxDecoration(
         color: AppColors.gray100,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/modern_bottom_sheet.dart';
-import '../../../core/widgets/step_indicator.dart';
 import '../../../core/widgets/modern_snackbar.dart';
 import '../../../models/customer.dart';
 import '../../../models/menu_item.dart' as models;
@@ -65,16 +64,24 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     return _cachedItemCount!;
   }
 
+  // Get cart items with details for the cart summary
+  List<CartItem> get _cartItems {
+    final menuProvider = context.read<MenuProvider>();
+    return _cart.entries.map((entry) {
+      final item = menuProvider.getItemById(entry.key);
+      return CartItem(
+        id: entry.key,
+        name: item?.name ?? 'Unknown Item',
+        price: item?.price ?? 0,
+        quantity: entry.value,
+      );
+    }).toList();
+  }
+
   // Invalidate cache when cart changes
   void _invalidateCache() {
     _cachedTotal = null;
     _cachedItemCount = null;
-  }
-
-  int get _currentStep {
-    if (_selectedCustomer == null) return 0;
-    if (_cart.isEmpty) return 1;
-    return 2;
   }
 
   bool get _canCreate => _selectedCustomer != null && _cart.isNotEmpty;
@@ -101,21 +108,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       ),
       body: Column(
         children: [
-          // Progress Steps
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.all(AppTokens.space4),
-            child: StepIndicator(
-              currentStep: _currentStep,
-              steps: const [
-                StepItem(label: 'Customer', icon: Icons.person_outline),
-                StepItem(label: 'Items', icon: Icons.restaurant_menu),
-                StepItem(label: 'Confirm', icon: Icons.check),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: AppColors.outline.withOpacity(0.3)),
-
           // Main Content
           Expanded(
             child: CustomScrollView(
@@ -143,6 +135,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                           onRemove: _removeFromCart,
                         ),
                         const SizedBox(height: AppTokens.space5),
+
+                        // Cart Summary Section (shows when cart has items)
+                        if (_cart.isNotEmpty) ...[
+                          _CartSection(
+                            items: _cartItems,
+                            totalItems: _totalItems,
+                            totalAmount: _totalAmount,
+                            onRemoveItem: _removeItemCompletely,
+                            onUpdateQuantity: _updateItemQuantity,
+                          ),
+                          const SizedBox(height: AppTokens.space5),
+                        ],
 
                         // Notes Section
                         _NotesSection(controller: _notesController),
@@ -186,6 +190,24 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         _cart.remove(item.id);
       } else {
         _cart[item.id] = currentQty - 1;
+      }
+      _invalidateCache();
+    });
+  }
+
+  void _removeItemCompletely(String itemId) {
+    setState(() {
+      _cart.remove(itemId);
+      _invalidateCache();
+    });
+  }
+
+  void _updateItemQuantity(String itemId, int newQuantity) {
+    setState(() {
+      if (newQuantity <= 0) {
+        _cart.remove(itemId);
+      } else {
+        _cart[itemId] = newQuantity;
       }
       _invalidateCache();
     });
@@ -243,7 +265,25 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 }
 
-// Section Widgets
+// ==================== CART ITEM MODEL ====================
+
+class CartItem {
+  final String id;
+  final String name;
+  final double price;
+  final int quantity;
+
+  CartItem({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.quantity,
+  });
+
+  double get total => price * quantity;
+}
+
+// ==================== SECTION WIDGETS ====================
 
 class _CustomerSection extends StatelessWidget {
   final Customer? selectedCustomer;
@@ -321,7 +361,7 @@ class _MenuSection extends StatelessWidget {
           children: List.generate(6, (index) {
             return SizedBox(
               width:
-                  (MediaQueryData.fromWindow(
+                  (MediaQueryData.fromView(
                         WidgetsBinding.instance.window,
                       ).size.width -
                       (AppTokens.space4 * 2) -
@@ -375,6 +415,171 @@ class _MenuSection extends StatelessWidget {
     );
   }
 }
+
+// ==================== CART SECTION ====================
+
+class _CartSection extends StatelessWidget {
+  final List<CartItem> items;
+  final int totalItems;
+  final double totalAmount;
+  final Function(String) onRemoveItem;
+  final Function(String, int) onUpdateQuantity;
+
+  const _CartSection({
+    required this.items,
+    required this.totalItems,
+    required this.totalAmount,
+    required this.onRemoveItem,
+    required this.onUpdateQuantity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Current Items',
+      icon: Icons.shopping_bag_outlined,
+      isComplete: true,
+      badge: '$totalItems items',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cart Items List
+          ...items.map(
+            (item) => _CartItemTile(
+              item: item,
+              onRemove: () => onRemoveItem(item.id),
+              onIncrease: () => onUpdateQuantity(item.id, item.quantity + 1),
+              onDecrease: () => onUpdateQuantity(item.id, item.quantity - 1),
+            ),
+          ),
+
+          const Divider(height: 24),
+
+          // Total Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total ($totalItems items)',
+                style: TextStyle(fontSize: 14, color: AppColors.gray600),
+              ),
+              Text(
+                'Rs. ${totalAmount.toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartItemTile extends StatelessWidget {
+  final CartItem item;
+  final VoidCallback onRemove;
+  final VoidCallback onIncrease;
+  final VoidCallback onDecrease;
+
+  const _CartItemTile({
+    required this.item,
+    required this.onRemove,
+    required this.onIncrease,
+    required this.onDecrease,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          // Item Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Rs. ${item.price.toStringAsFixed(0)} x ${item.quantity}',
+                  style: TextStyle(fontSize: 12, color: AppColors.gray600),
+                ),
+              ],
+            ),
+          ),
+
+          // Quantity Controls
+          Row(
+            children: [
+              _QuantityButton(icon: Icons.remove, onTap: onDecrease),
+              const SizedBox(width: 8),
+              Text(
+                '${item.quantity}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _QuantityButton(icon: Icons.add, onTap: onIncrease),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: onRemove,
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: AppColors.error,
+                  size: 20,
+                ),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuantityButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuantityButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primaryContainer,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          child: Icon(icon, size: 16, color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== OTHER SECTIONS ====================
 
 class _NotesSection extends StatelessWidget {
   final TextEditingController controller;
@@ -478,7 +683,7 @@ class _BuildOrderButton extends StatelessWidget {
   }
 }
 
-// Shared Components
+// ==================== SHARED COMPONENTS ====================
 
 class _SectionCard extends StatelessWidget {
   final String title;

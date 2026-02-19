@@ -152,12 +152,14 @@ class CustomerService {
         if (data is Map &&
             (data.containsKey('data') || data.containsKey('docs'))) {
           final payload = data['data'] ?? data['docs'];
-          if (payload is Map)
+          if (payload is Map) {
             return Customer.fromJson(Map<String, dynamic>.from(payload));
+          }
         }
 
-        if (data is Map)
+        if (data is Map) {
           return Customer.fromJson(Map<String, dynamic>.from(data));
+        }
 
         throw Exception('Unexpected response when creating customer');
       } else {

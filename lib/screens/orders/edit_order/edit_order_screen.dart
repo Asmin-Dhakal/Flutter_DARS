@@ -102,8 +102,9 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     if (_selectedCustomer?.id != widget.order.customerId) return true;
 
     // Check if notes changed
-    if ((_notesController.text.trim()) != (widget.order.notes ?? ''))
+    if ((_notesController.text.trim()) != (widget.order.notes ?? '')) {
       return true;
+    }
 
     // Check if items changed
     if (_cart.length != widget.order.orderedItems.length) return true;
@@ -393,7 +394,7 @@ class _MenuSection extends StatelessWidget {
           children: List.generate(6, (index) {
             return SizedBox(
               width:
-                  (MediaQueryData.fromWindow(
+                  (MediaQueryData.fromView(
                         WidgetsBinding.instance.window,
                       ).size.width -
                       (AppTokens.space4 * 2) -

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../models/bill.dart';
 import '../../services/menu_service.dart';
 import '../../services/auth_service.dart';
-import '../../services/bill_service.dart';
 import '../../providers/bill_provider.dart';
 import 'widgets/add_customer_items_modal.dart';
 import 'widgets/components/bill_item_card.dart';
@@ -38,7 +37,6 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   Future<void> _loadInitialCustomerItems() async {
     setState(() => _isLoading = true);
 
-    // Convert initial customer's orders to selectable items
     final items = await _convertOrdersToItems(
       widget.initialCustomer.orders,
       widget.initialCustomer.id,
@@ -59,17 +57,14 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
     final List<SelectableBillItem> items = [];
     final Set<String> menuItemIds = {};
 
-    // Collect all menu item IDs
     for (final order in orders) {
       for (final orderedItem in order.orderedItems) {
         menuItemIds.add(orderedItem.menuItemId);
       }
     }
 
-    // Fetch menu item names - use static method
     final menuItems = await MenuService.getMenuItemsByIds(menuItemIds.toList());
 
-    // Create selectable items
     for (final order in orders) {
       for (final orderedItem in order.orderedItems) {
         final menuItem = menuItems[orderedItem.menuItemId];
@@ -80,10 +75,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           menuItemName: menuItem?.name ?? 'Unknown Item',
           priceAtOrder: orderedItem.priceAtOrder,
           availableQuantity: orderedItem.quantity - orderedItem.billedQuantity,
-          selectedQuantity:
-              orderedItem.quantity -
-              orderedItem.billedQuantity, // Default to all
-          isSelected: true, // Default selected
+          selectedQuantity: orderedItem.quantity - orderedItem.billedQuantity,
+          isSelected: true,
           customerId: customerId,
           customerName: customerName,
         );
@@ -97,18 +90,15 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   void _addOtherCustomer() async {
     final result = await showDialog<UnbilledCustomer>(
       context: context,
-      builder: (context) => AddCustomerItemsModal(
-        excludeCustomerId:
-            widget.initialCustomer.id, // Pass current customer ID
-      ),
+      builder: (context) =>
+          AddCustomerItemsModal(excludeCustomerId: widget.initialCustomer.id),
     );
 
     if (result != null) {
-      // Check if already added
       if (_customerItems.containsKey(result.id)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${result.name} is already added'),
+            content: Text('${result.name} is already added', maxLines: 2),
             backgroundColor: Colors.orange,
           ),
         );
@@ -130,7 +120,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added ${result.name}\'s items'),
+          content: Text('Added ${result.name}\'s items', maxLines: 2),
           backgroundColor: Colors.green,
         ),
       );
@@ -189,7 +179,6 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           )
           .toList();
 
-      // Use provider to create bill — avoids extra full reloads
       final createdBill = await context.read<BillProvider>().createBill(
         customerId: widget.initialCustomer.id,
         orderedItems: items,
@@ -202,6 +191,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           SnackBar(
             content: Text(
               'Bill ${createdBill.billNumber} created successfully',
+              maxLines: 2,
             ),
             backgroundColor: Colors.green,
           ),
@@ -220,16 +210,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   void _handleCreateBillError(String error) {
     String title = 'Error Creating Bill';
     String message = error;
-    List<Widget> actions = [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Close'),
-      ),
-    ];
 
-    // Parse specific error messages
     if (error.contains('Cannot bill') && error.contains('remaining')) {
-      // Extract item name and order number using regex
       final itemMatch = RegExp(
         r'Cannot bill \d+ of "([^"]+)"',
       ).firstMatch(error);
@@ -240,35 +222,15 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       ).firstMatch(error);
 
       final itemName = itemMatch?.group(1) ?? 'item';
-      final orderNumber = orderMatch?.group(1) ?? 'unknown';
       final remaining = remainingMatch?.group(1) ?? '0';
       final pending = pendingMatch?.group(1) ?? '0';
 
       title = 'Item Already in Another Bill';
       message =
-          '"$itemName" from $orderNumber cannot be added to this bill.\n\n'
-          '• Remaining quantity: $remaining\n'
-          '• Already in pending bills: $pending\n\n'
-          'Please refresh and try again, or select a different item.';
-
-      actions = [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Go Back'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            // Refresh and retry
-            _refreshAndRetry();
-          },
-          child: const Text('Refresh & Retry'),
-        ),
-      ];
-    } else if (error.contains('Bad Request')) {
-      title = 'Invalid Request';
-      message =
-          'Some items may have been billed already. Please refresh the data and try again.';
+          '"$itemName" cannot be added.\n'
+          '• Remaining: $remaining\n'
+          '• In pending bills: $pending\n'
+          'Please refresh and try again.';
     }
 
     showDialog(
@@ -278,24 +240,18 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           children: [
             Icon(Icons.error_outline, color: Colors.red[700]),
             const SizedBox(width: 8),
-            Expanded(child: Text(title)),
+            Expanded(
+              child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+            ),
           ],
         ),
-        content: Text(message),
-        actions: actions,
-      ),
-    );
-  }
-
-  Future<void> _refreshAndRetry() async {
-    // Close current screen and go back to customer selection
-    Navigator.of(context).pop(false);
-
-    // Show refresh indicator
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Refreshing data...'),
-        duration: Duration(seconds: 1),
+        content: Text(message, maxLines: 5, overflow: TextOverflow.ellipsis),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -320,130 +276,96 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isSmall = size.width < 360;
+    final isVerySmall = size.width < 320;
 
     return Scaffold(
       backgroundColor: Colors.black54,
       body: Center(
         child: Container(
-          margin: const EdgeInsets.all(20),
-          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 800),
+          margin: EdgeInsets.all(isSmall ? 12 : 20),
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: size.height * 0.9, // Responsive height
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(isSmall ? 12 : 16),
           ),
-          child: Column(
-            children: [
-              // Header
-              CreateBillHeader(
-                initialCustomer: widget.initialCustomer,
-                onAddOtherCustomer: _addOtherCustomer,
-                onBack: () => Navigator.of(context).pop(),
-              ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(isSmall ? 12 : 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                CreateBillHeader(
+                  initialCustomer: widget.initialCustomer,
+                  onAddOtherCustomer: _addOtherCustomer,
+                  onBack: () => Navigator.of(context).pop(),
+                ),
 
-              const Divider(height: 1),
+                const Divider(height: 1),
 
-              // Content
-              Expanded(
-                child: _isLoading
-                    ? Padding(
-                        padding: const EdgeInsets.all(AppTokens.space4),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              SkeletonBox(width: 200, height: 20),
-                              SizedBox(height: AppTokens.space3),
-                              SkeletonBox(width: double.infinity, height: 14),
-                              SizedBox(height: AppTokens.space2),
-                              SkeletonBox(width: double.infinity, height: 14),
-                              SizedBox(height: AppTokens.space3),
-                              SkeletonBox(width: double.infinity, height: 14),
-                              SizedBox(height: AppTokens.space3),
-                              SkeletonBox(width: double.infinity, height: 14),
-                              SizedBox(height: AppTokens.space8),
-                              SkeletonBox(width: double.infinity, height: 14),
-                              SizedBox(height: AppTokens.space2),
-                            ],
-                          ),
-                        ),
-                      )
-                    : _buildContent(theme),
-              ),
+                // Content
+                Flexible(
+                  child: _isLoading
+                      ? _buildSkeleton(isSmall)
+                      : _buildContent(isSmall),
+                ),
 
-              // Footer
-              BillSummary(
-                selectedItemCount: _selectedItemCount,
-                totalAmount: _totalAmount,
-                isCreating: _isCreating,
-                onCreate: _createBill,
-              ),
-            ],
+                // Footer
+                BillSummary(
+                  selectedItemCount: _selectedItemCount,
+                  totalAmount: _totalAmount,
+                  isCreating: _isCreating,
+                  onCreate: _createBill,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
+  Widget _buildSkeleton(bool isSmall) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Create Bill - Select Items',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+      padding: EdgeInsets.all(isSmall ? 12 : AppTokens.space4),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SkeletonBox(width: isSmall ? 150 : 200, height: isSmall ? 16 : 20),
+            SizedBox(height: isSmall ? 12 : AppTokens.space3),
+            ...List.generate(
+              6,
+              (index) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: isSmall ? 8 : AppTokens.space2,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      'Bill for: ${widget.initialCustomer.name}',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _addOtherCustomer,
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add Others'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
+                child: SkeletonBox(
+                  width: double.infinity,
+                  height: isSmall ? 12 : 14,
                 ),
-              ],
+              ),
             ),
-          ),
-          TextButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back, size: 18),
-            label: const Text('Back'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildContent(ThemeData theme) {
+  Widget _buildContent(bool isSmall) {
     if (_customerItems.isEmpty) {
       return const Center(child: Text('No items to bill'));
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmall ? 12 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           CreateBillControls(
             selectedItemCount: _selectedItemCount,
@@ -452,84 +374,22 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
             notesController: _notesController,
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: isSmall ? 12 : 16),
 
-          // Customer Items
           CustomerItemsSection(
             customerItems: _customerItems,
             primaryCustomerId: widget.initialCustomer.id,
-            onRemoveCustomer: (customerId) => _removeCustomer(customerId),
+            onRemoveCustomer: _removeCustomer,
             onItemChanged: (updatedItem) {
-              setState(() {
-                // item object is already mutated by child; invalidate caches
-              });
+              setState(() {});
             },
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: isSmall ? 16 : 24),
         ],
       ),
     );
   }
-
-  Widget _buildCustomerSection(
-    String customerId,
-    List<SelectableBillItem> items,
-    ThemeData theme,
-  ) {
-    final customerName = items.first.customerName;
-    final isPrimaryCustomer = customerId == widget.initialCustomer.id;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              customerName,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (!isPrimaryCustomer)
-              TextButton.icon(
-                onPressed: () => _removeCustomer(customerId),
-                icon: const Icon(Icons.close, size: 16),
-                label: const Text('Remove'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...items.map(
-          (item) => BillItemCard(
-            item: item,
-            onSelectChanged: (selected) {
-              setState(() {
-                item.isSelected = selected;
-                if (selected && item.selectedQuantity == 0) {
-                  item.selectedQuantity = item.availableQuantity;
-                }
-              });
-            },
-            onQuantityChanged: (qty) {
-              setState(() {
-                item.selectedQuantity = qty.clamp(0, item.availableQuantity);
-                item.isSelected = item.selectedQuantity > 0;
-              });
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-
-  // old item tile and footer removed — replaced by modular components
 
   @override
   void dispose() {

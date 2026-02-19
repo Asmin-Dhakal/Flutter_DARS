@@ -36,7 +36,6 @@ class _BillsTabState extends State<BillsTab> {
   }
 
   Future<void> _loadBills() async {
-    // Use provider's filtered loader so `isLoading` is toggled
     try {
       await context.read<BillProvider>().loadBillsFiltered(
         page: 1,
@@ -78,7 +77,7 @@ class _BillsTabState extends State<BillsTab> {
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -89,7 +88,7 @@ class _BillsTabState extends State<BillsTab> {
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -98,7 +97,6 @@ class _BillsTabState extends State<BillsTab> {
   }
 
   Future<void> _showCreateBillFlow() async {
-    // Force refresh unbilled customers before showing modal
     final billProvider = context.read<BillProvider>();
     await billProvider.loadUnbilledCustomers();
 
@@ -126,6 +124,8 @@ class _BillsTabState extends State<BillsTab> {
   @override
   Widget build(BuildContext context) {
     final billProvider = context.watch<BillProvider>();
+    final size = MediaQuery.of(context).size;
+    final isSmall = size.width < 360;
 
     return Scaffold(
       backgroundColor: AppColors.gray100,
@@ -136,12 +136,12 @@ class _BillsTabState extends State<BillsTab> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            _buildAppBar(),
+            _buildAppBar(isSmall),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.space4,
-                  vertical: AppTokens.space4,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmall ? 12 : AppTokens.space4,
+                  vertical: isSmall ? 12 : AppTokens.space4,
                 ),
                 child: StatusFilter(
                   selectedStatus: _selectedStatus,
@@ -150,51 +150,11 @@ class _BillsTabState extends State<BillsTab> {
                 ),
               ),
             ),
-            SliverToBoxAdapter(child: SizedBox(height: AppTokens.space2)),
+            SliverToBoxAdapter(
+              child: SizedBox(height: isSmall ? 8 : AppTokens.space2),
+            ),
             if (billProvider.isLoading && billProvider.bills.isEmpty)
-              SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTokens.space4,
-                      vertical: AppTokens.space3,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(AppTokens.space4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(
-                          AppTokens.radiusLarge,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const SkeletonBox(width: 100, height: 16),
-                              const SizedBox(width: AppTokens.space3),
-                              const SkeletonBox(width: 60, height: 14),
-                            ],
-                          ),
-                          const SizedBox(height: AppTokens.space3),
-                          const SkeletonBox(width: double.infinity, height: 14),
-                          const SizedBox(height: AppTokens.space2),
-                          const SkeletonBox(width: double.infinity, height: 14),
-                          const SizedBox(height: AppTokens.space3),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              SkeletonBox(width: 120, height: 36),
-                              SkeletonBox(width: 80, height: 36),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }, childCount: 4),
-              )
+              _buildSkeletonList(isSmall)
             else if (billProvider.bills.isEmpty)
               SliverFillRemaining(
                 child: EmptyBillsState(onCreateBill: _showCreateBillFlow),
@@ -204,8 +164,9 @@ class _BillsTabState extends State<BillsTab> {
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final bill = billProvider.bills[index];
                   return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTokens.space4,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmall ? 12 : AppTokens.space4,
+                      vertical: isSmall ? 6 : 0,
                     ),
                     child: BillCard(
                       bill: bill,
@@ -216,30 +177,26 @@ class _BillsTabState extends State<BillsTab> {
                   );
                 }, childCount: billProvider.bills.length),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            SliverToBoxAdapter(child: SizedBox(height: isSmall ? 80 : 100)),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateBillFlow,
-        icon: const Icon(Icons.add),
-        label: const Text('Create Bill'),
-      ),
+      floatingActionButton: _buildFAB(isSmall),
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(bool isSmall) {
     return SliverAppBar(
-      expandedHeight: 100,
+      expandedHeight: 80,
       floating: true,
       pinned: true,
       elevation: 0,
       backgroundColor: AppColors.surface,
       surfaceTintColor: AppColors.surface,
       flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space4,
-          vertical: AppTokens.space4,
+        titlePadding: EdgeInsets.symmetric(
+          horizontal: isSmall ? 12 : AppTokens.space4,
+          vertical: isSmall ? 12 : AppTokens.space4,
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,17 +207,85 @@ class _BillsTabState extends State<BillsTab> {
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: AppColors.onSurface,
+                fontSize: isSmall ? 16 : 18,
               ),
-            ),
-            Text(
-              'Manage customer bills',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSkeletonList(bool isSmall) {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmall ? 12 : AppTokens.space4,
+            vertical: isSmall ? 8 : AppTokens.space3,
+          ),
+          child: Container(
+            padding: EdgeInsets.all(isSmall ? 12 : AppTokens.space4),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SkeletonBox(
+                      width: isSmall ? 80 : 100,
+                      height: isSmall ? 14 : 16,
+                    ),
+                    SizedBox(width: isSmall ? 8 : AppTokens.space3),
+                    SkeletonBox(
+                      width: isSmall ? 50 : 60,
+                      height: isSmall ? 12 : 14,
+                    ),
+                  ],
+                ),
+                SizedBox(height: isSmall ? 10 : AppTokens.space3),
+                SkeletonBox(width: double.infinity, height: isSmall ? 12 : 14),
+                SizedBox(height: isSmall ? 6 : AppTokens.space2),
+                SkeletonBox(
+                  width: isSmall ? 200 : double.infinity,
+                  height: isSmall ? 12 : 14,
+                ),
+                SizedBox(height: isSmall ? 10 : AppTokens.space3),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SkeletonBox(
+                      width: isSmall ? 100 : 120,
+                      height: isSmall ? 32 : 36,
+                    ),
+                    SkeletonBox(
+                      width: isSmall ? 70 : 80,
+                      height: isSmall ? 32 : 36,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }, childCount: isSmall ? 3 : 4),
+    );
+  }
+
+  Widget _buildFAB(bool isSmall) {
+    return FloatingActionButton.extended(
+      onPressed: _showCreateBillFlow,
+      icon: const Icon(Icons.add, size: 20),
+      label: Text(
+        isSmall ? 'New' : 'Create Bill',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      extendedPadding: EdgeInsets.symmetric(horizontal: isSmall ? 12 : 16),
     );
   }
 }

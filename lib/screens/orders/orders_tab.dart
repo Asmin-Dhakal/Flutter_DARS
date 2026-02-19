@@ -56,7 +56,7 @@ class _OrdersTabState extends State<OrdersTab> {
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 100, // Reduced from 120
+      expandedHeight: 80,
       floating: true,
       pinned: true,
       elevation: 0,
@@ -89,17 +89,6 @@ class _OrdersTabState extends State<OrdersTab> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (!isSmall) // Hide subtitle on very small screens
-                        Text(
-                          'Manage orders',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                     ],
                   ),
                 ),

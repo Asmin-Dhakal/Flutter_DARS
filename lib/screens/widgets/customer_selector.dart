@@ -275,7 +275,7 @@ class _CustomerSelectorState extends State<CustomerSelector> {
                 ),
                 const SizedBox(height: AppTokens.space3),
                 DropdownButtonFormField<String>(
-                  value: selectedGender,
+                  initialValue: selectedGender,
                   decoration: const InputDecoration(labelText: 'Gender'),
                   items: const [
                     DropdownMenuItem(value: 'male', child: Text('Male')),

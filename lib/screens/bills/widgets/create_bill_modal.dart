@@ -18,18 +18,32 @@ class _CreateBillModalState extends State<CreateBillModal> {
   @override
   void initState() {
     super.initState();
-    _loadCustomers();
+    // DEFER loading to after build completes - FIXES THE ERROR
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCustomers();
+    });
   }
 
   Future<void> _loadCustomers() async {
+    // Check mounted before setState
+    if (!mounted) return;
+
     setState(() => _isLoading = true);
+
+    // Use read instead of watch to avoid triggering rebuild during build
     await context.read<BillProvider>().loadUnbilledCustomers();
-    setState(() => _isLoading = false);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isSmall = size.width < 360;
+
     final billProvider = context.watch<BillProvider>();
     final customers = billProvider.unbilledCustomers;
 
@@ -39,29 +53,34 @@ class _CreateBillModalState extends State<CreateBillModal> {
         .toList();
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(isSmall ? 12 : 16),
+      ),
       child: Container(
-        width: 400,
-        constraints: const BoxConstraints(maxHeight: 500),
-        padding: const EdgeInsets.all(20),
+        width: isSmall ? size.width * 0.9 : 400,
+        constraints: BoxConstraints(
+          maxHeight: isSmall ? size.height * 0.8 : 500,
+        ),
+        padding: EdgeInsets.all(isSmall ? 16 : 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Fixed Header with FittedBox
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Create Bill - Select Customer',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  child: Text(
+                    isSmall
+                        ? 'Select Customer'
+                        : 'Create Bill - Select Customer',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: isSmall ? 18 : null,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -73,49 +92,12 @@ class _CreateBillModalState extends State<CreateBillModal> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: isSmall ? 16 : 20),
 
             if (_isLoading || billProvider.isLoading)
-              Expanded(
-                child: Column(
-                  children: const [
-                    SizedBox(height: 8),
-                    SkeletonBox(width: double.infinity, height: 18),
-                    SizedBox(height: 12),
-                    SkeletonBox(width: double.infinity, height: 12),
-                    SizedBox(height: 8),
-                    SkeletonBox(width: double.infinity, height: 12),
-                    SizedBox(height: 12),
-                    SkeletonBox(width: double.infinity, height: 12),
-                  ],
-                ),
-              )
+              _buildSkeleton(isSmall)
             else if (availableCustomers.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.receipt_long_outlined,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No customers with unbilled items',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: _loadCustomers,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Refresh'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
+              _buildEmptyState()
             else
               Expanded(
                 child: Column(
@@ -126,15 +108,16 @@ class _CreateBillModalState extends State<CreateBillModal> {
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                         color: Colors.grey[600],
+                        fontSize: isSmall ? 13 : null,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: isSmall ? 10 : 12),
                     Expanded(
                       child: ListView.builder(
                         itemCount: availableCustomers.length,
                         itemBuilder: (context, index) {
                           final customer = availableCustomers[index];
-                          return _buildCustomerCard(customer, theme);
+                          return _buildCustomerCard(customer, theme, isSmall);
                         },
                       ),
                     ),
@@ -142,7 +125,7 @@ class _CreateBillModalState extends State<CreateBillModal> {
                 ),
               ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: isSmall ? 12 : 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -150,7 +133,7 @@ class _CreateBillModalState extends State<CreateBillModal> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: isSmall ? 8 : 12),
                 ElevatedButton(
                   onPressed: _selectedCustomer == null
                       ? null
@@ -165,15 +148,70 @@ class _CreateBillModalState extends State<CreateBillModal> {
     );
   }
 
-  Widget _buildCustomerCard(UnbilledCustomer customer, ThemeData theme) {
+  Widget _buildSkeleton(bool isSmall) {
+    return Expanded(
+      child: Column(
+        children: [
+          SizedBox(height: isSmall ? 6 : 8),
+          SkeletonBox(width: double.infinity, height: isSmall ? 16 : 18),
+          SizedBox(height: isSmall ? 10 : 12),
+          ...List.generate(
+            4,
+            (index) => Padding(
+              padding: EdgeInsets.only(bottom: isSmall ? 6 : 8),
+              child: SkeletonBox(
+                width: double.infinity,
+                height: isSmall ? 10 : 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No customers with unbilled items',
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadCustomers,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomerCard(
+    UnbilledCustomer customer,
+    ThemeData theme,
+    bool isSmall,
+  ) {
     final isSelected = _selectedCustomer?.id == customer.id;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: isSmall ? 6 : 8),
       elevation: isSelected ? 2 : 0,
       color: isSelected ? Colors.blue[50] : Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(isSmall ? 10 : 12),
         side: BorderSide(
           color: isSelected ? Colors.blue : Colors.grey.shade300,
           width: isSelected ? 2 : 1,
@@ -185,9 +223,9 @@ class _CreateBillModalState extends State<CreateBillModal> {
             _selectedCustomer = customer;
           });
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(isSmall ? 10 : 12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isSmall ? 12 : 16),
           child: Row(
             children: [
               Expanded(
@@ -198,20 +236,28 @@ class _CreateBillModalState extends State<CreateBillModal> {
                       customer.name,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isSmall ? 14 : null,
                       ),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: isSmall ? 2 : 4),
                     Text(
                       '${customer.orderCount} order(s)',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: isSmall ? 11 : 12,
+                      ),
                     ),
                   ],
                 ),
               ),
-              // Fixed: Smaller badge to prevent overflow
+              // Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmall ? 6 : 8,
+                  vertical: isSmall ? 3 : 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green[100],
                   borderRadius: BorderRadius.circular(12),
@@ -224,24 +270,28 @@ class _CreateBillModalState extends State<CreateBillModal> {
                       style: TextStyle(
                         color: Colors.green[700],
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: isSmall ? 11 : 12,
                       ),
                     ),
-                    Text(
-                      ' items',
-                      style: TextStyle(color: Colors.green[700], fontSize: 10),
-                    ),
+                    if (!isSmall)
+                      Text(
+                        ' items',
+                        style: TextStyle(
+                          color: Colors.green[700],
+                          fontSize: 10,
+                        ),
+                      ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              // Fixed: Smaller font and flexible width
+              SizedBox(width: isSmall ? 6 : 8),
+              // Amount
               Flexible(
                 child: Text(
                   'Rs. ${customer.totalUnbilledAmount.toStringAsFixed(0)}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: isSmall ? 13 : 14,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

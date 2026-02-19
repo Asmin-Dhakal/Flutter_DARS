@@ -23,7 +23,7 @@ class MenuGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.5,
+        childAspectRatio: 1,
         crossAxisSpacing: AppTokens.space3,
         mainAxisSpacing: AppTokens.space3,
       ),
