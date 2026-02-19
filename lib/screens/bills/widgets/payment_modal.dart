@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../models/bill.dart';
 import '../../../models/payment_method.dart';
 import '../../../providers/bill_provider.dart';
+import '../../../core/widgets/skeleton.dart';
+import '../../../core/theme/app_theme.dart';
 
 class PaymentModal extends StatefulWidget {
   final Bill bill;
@@ -111,7 +113,17 @@ class _PaymentModalState extends State<PaymentModal> {
               const SizedBox(height: 8),
 
               if (provider.isLoading && paymentMethods.isEmpty)
-                const Center(child: CircularProgressIndicator())
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SkeletonBox(width: double.infinity, height: 16),
+                      SizedBox(height: AppTokens.space2),
+                      SkeletonBox(width: double.infinity, height: 16),
+                    ],
+                  ),
+                )
               else if (provider.error != null)
                 Container(
                   padding: const EdgeInsets.all(12),

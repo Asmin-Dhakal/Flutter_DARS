@@ -4,7 +4,15 @@ import '../../models/bill.dart';
 import '../../services/menu_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/bill_service.dart';
+import '../../providers/bill_provider.dart';
 import 'widgets/add_customer_items_modal.dart';
+import 'widgets/components/bill_item_card.dart';
+import 'widgets/components/customer_items_section.dart';
+import 'widgets/components/create_bill_controls.dart';
+import 'widgets/create_bill_header.dart';
+import 'widgets/bill_summary.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/skeleton.dart';
 
 class CreateBillScreen extends StatefulWidget {
   final UnbilledCustomer initialCustomer;
@@ -164,7 +172,6 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
     setState(() => _isCreating = true);
 
     try {
-      final billService = context.read<BillService>();
       final user = await AuthService.getUser();
       final createdBy = user?.id ?? '';
 
@@ -182,17 +189,20 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           )
           .toList();
 
-      final bill = await billService.createBill(
+      // Use provider to create bill — avoids extra full reloads
+      final createdBill = await context.read<BillProvider>().createBill(
         customerId: widget.initialCustomer.id,
-        items: items,
+        orderedItems: items,
         createdBy: createdBy,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
-      if (mounted) {
+      if (mounted && createdBill != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Bill ${bill.billNumber} created successfully'),
+            content: Text(
+              'Bill ${createdBill.billNumber} created successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -203,9 +213,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
         _handleCreateBillError(e.toString());
       }
     } finally {
-      if (mounted) {
-        setState(() => _isCreating = false);
-      }
+      if (mounted) setState(() => _isCreating = false);
     }
   }
 
@@ -327,19 +335,49 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           child: Column(
             children: [
               // Header
-              _buildHeader(theme),
+              CreateBillHeader(
+                initialCustomer: widget.initialCustomer,
+                onAddOtherCustomer: _addOtherCustomer,
+                onBack: () => Navigator.of(context).pop(),
+              ),
 
               const Divider(height: 1),
 
               // Content
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? Padding(
+                        padding: const EdgeInsets.all(AppTokens.space4),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              SkeletonBox(width: 200, height: 20),
+                              SizedBox(height: AppTokens.space3),
+                              SkeletonBox(width: double.infinity, height: 14),
+                              SizedBox(height: AppTokens.space2),
+                              SkeletonBox(width: double.infinity, height: 14),
+                              SizedBox(height: AppTokens.space3),
+                              SkeletonBox(width: double.infinity, height: 14),
+                              SizedBox(height: AppTokens.space3),
+                              SkeletonBox(width: double.infinity, height: 14),
+                              SizedBox(height: AppTokens.space8),
+                              SkeletonBox(width: double.infinity, height: 14),
+                              SizedBox(height: AppTokens.space2),
+                            ],
+                          ),
+                        ),
+                      )
                     : _buildContent(theme),
               ),
 
               // Footer
-              _buildFooter(theme),
+              BillSummary(
+                selectedItemCount: _selectedItemCount,
+                totalAmount: _totalAmount,
+                isCreating: _isCreating,
+                onCreate: _createBill,
+              ),
             ],
           ),
         ),
@@ -407,53 +445,28 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Select All / Deselect All
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Select Items to Bill',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextButton(
-                onPressed: () => _toggleSelectAll(_selectedItemCount == 0),
-                child: Text(
-                  _selectedItemCount == 0 ? 'Select All' : 'Deselect All',
-                ),
-              ),
-            ],
+          CreateBillControls(
+            selectedItemCount: _selectedItemCount,
+            isAllSelected: _selectedItemCount > 0,
+            onToggleSelectAll: () => _toggleSelectAll(_selectedItemCount == 0),
+            notesController: _notesController,
           ),
 
           const SizedBox(height: 16),
 
           // Customer Items
-          ..._customerItems.entries.map((entry) {
-            return _buildCustomerSection(entry.key, entry.value, theme);
-          }),
+          CustomerItemsSection(
+            customerItems: _customerItems,
+            primaryCustomerId: widget.initialCustomer.id,
+            onRemoveCustomer: (customerId) => _removeCustomer(customerId),
+            onItemChanged: (updatedItem) {
+              setState(() {
+                // item object is already mutated by child; invalidate caches
+              });
+            },
+          ),
 
           const SizedBox(height: 24),
-
-          // Notes
-          Text(
-            'Notes (optional)',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _notesController,
-            maxLines: 3,
-            decoration: InputDecoration(
-              hintText: 'Add any notes for this bill...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.all(12),
-            ),
-          ),
         ],
       ),
     );
@@ -492,196 +505,31 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        ...items.map((item) => _buildItemTile(item, theme)),
+        ...items.map(
+          (item) => BillItemCard(
+            item: item,
+            onSelectChanged: (selected) {
+              setState(() {
+                item.isSelected = selected;
+                if (selected && item.selectedQuantity == 0) {
+                  item.selectedQuantity = item.availableQuantity;
+                }
+              });
+            },
+            onQuantityChanged: (qty) {
+              setState(() {
+                item.selectedQuantity = qty.clamp(0, item.availableQuantity);
+                item.isSelected = item.selectedQuantity > 0;
+              });
+            },
+          ),
+        ),
         const SizedBox(height: 16),
       ],
     );
   }
 
-  Widget _buildItemTile(SelectableBillItem item, ThemeData theme) {
-    final bool isFullyBilled = item.availableQuantity == 0;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isFullyBilled ? Colors.grey[100] : Colors.white,
-        border: Border.all(
-          color: isFullyBilled ? Colors.grey.shade200 : Colors.grey.shade300,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          // Show checkmark or disabled state
-          isFullyBilled
-              ? Icon(Icons.check_circle, color: Colors.green[400], size: 24)
-              : Checkbox(
-                  value: item.isSelected,
-                  onChanged: (value) {
-                    setState(() {
-                      item.isSelected = value ?? false;
-                      if (item.isSelected && item.selectedQuantity == 0) {
-                        item.selectedQuantity = item.availableQuantity;
-                      }
-                    });
-                  },
-                ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      item.menuItemName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: isFullyBilled ? Colors.grey : Colors.black,
-                        decoration: isFullyBilled
-                            ? TextDecoration.lineThrough
-                            : null,
-                      ),
-                    ),
-                    if (isFullyBilled) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green[100],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Billed',
-                          style: TextStyle(
-                            color: Colors.green[700],
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${item.orderNumber} · Rs. ${item.priceAtOrder.toStringAsFixed(0)} each',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isFullyBilled
-                        ? Colors.grey[400]
-                        : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Show quantity or "Billed" text
-          isFullyBilled
-              ? Text(
-                  'Billed',
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              : Row(
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      child: TextField(
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        controller: TextEditingController(
-                          text: item.selectedQuantity.toString(),
-                        ),
-                        onChanged: (value) {
-                          final qty = int.tryParse(value) ?? 0;
-                          setState(() {
-                            item.selectedQuantity = qty.clamp(
-                              0,
-                              item.availableQuantity,
-                            );
-                            item.isSelected = item.selectedQuantity > 0;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '/ ${item.availableQuantity}',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$_selectedItemCount items selected',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-              ),
-              Text(
-                'Total: Rs. ${_totalAmount.toStringAsFixed(0)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          ElevatedButton(
-            onPressed: _isCreating ? null : _createBill,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade900,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: _isCreating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('Create Bill'),
-          ),
-        ],
-      ),
-    );
-  }
+  // old item tile and footer removed — replaced by modular components
 
   @override
   void dispose() {

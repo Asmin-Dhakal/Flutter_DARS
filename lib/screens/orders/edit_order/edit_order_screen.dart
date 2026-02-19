@@ -6,6 +6,7 @@ import '../../../models/customer.dart';
 import '../../../models/order.dart';
 import '../../../models/menu_item.dart' as models;
 import '../../../providers/menu_provider.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
 import '../../widgets/customer_selector.dart';
@@ -384,10 +385,42 @@ class _MenuSection extends StatelessWidget {
 
   Widget _buildContent() {
     if (menuProvider.isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(AppTokens.space8),
-          child: CircularProgressIndicator(strokeWidth: 2),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTokens.space4),
+        child: Wrap(
+          spacing: AppTokens.space3,
+          runSpacing: AppTokens.space3,
+          children: List.generate(6, (index) {
+            return SizedBox(
+              width:
+                  (MediaQueryData.fromWindow(
+                        WidgetsBinding.instance.window,
+                      ).size.width -
+                      (AppTokens.space4 * 2) -
+                      AppTokens.space3) /
+                  2,
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                  side: BorderSide(color: AppColors.outline.withOpacity(0.3)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppTokens.space3),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      SkeletonBox(width: double.infinity, height: 110),
+                      SizedBox(height: AppTokens.space3),
+                      SkeletonBox(width: 120, height: 14),
+                      SizedBox(height: AppTokens.space2),
+                      SkeletonBox(width: 80, height: 14),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
         ),
       );
     }
@@ -487,9 +520,10 @@ class _SaveButton extends StatelessWidget {
           ? const SizedBox(
               height: 18,
               width: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.onPrimary,
+              child: SkeletonBox(
+                width: 18,
+                height: 18,
+                borderRadius: BorderRadius.all(Radius.circular(18)),
               ),
             )
           : const Icon(Icons.save_outlined, size: 18),

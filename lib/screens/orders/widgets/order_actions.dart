@@ -5,6 +5,7 @@ import '../../../core/widgets/modern_dialog.dart';
 import '../../../core/widgets/modern_snackbar.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Modern, modular order actions following Material 3 design
 /// Optimized for low-end devices with minimal animations
@@ -145,9 +146,14 @@ class OrderActions {
       barrierDismissible: false,
       barrierColor: AppColors.gray900.withOpacity(0.3),
       builder: (_) => const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2, // Thinner = less rendering overhead
-          color: AppColors.primary,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: SkeletonBox(
+            width: 48,
+            height: 48,
+            borderRadius: BorderRadius.all(Radius.circular(48)),
+          ),
         ),
       ),
     );

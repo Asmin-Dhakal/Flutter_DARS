@@ -107,4 +107,72 @@ class CustomerService {
   static Future<List<Customer>> searchCustomers(String name) async {
     return getAllCustomers(searchByName: name, getAll: true);
   }
+
+  /// Create a new customer
+  static Future<Customer> createCustomer({
+    required String name,
+    String? number,
+    String? email,
+    String? gender,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/customers');
+
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception('Not authenticated');
+
+      final body = {
+        'name': name,
+        if (number != null && number.isNotEmpty) 'number': number,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (gender != null && gender.isNotEmpty) 'gender': gender,
+      };
+
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        // If API wraps the created object, try common keys
+        if (data is Map && data.containsKey('customer')) {
+          final customerObj = data['customer'];
+          if (customerObj is Map) {
+            return Customer.fromJson(Map<String, dynamic>.from(customerObj));
+          }
+        }
+
+        if (data is Map &&
+            (data.containsKey('data') || data.containsKey('docs'))) {
+          final payload = data['data'] ?? data['docs'];
+          if (payload is Map)
+            return Customer.fromJson(Map<String, dynamic>.from(payload));
+        }
+
+        if (data is Map)
+          return Customer.fromJson(Map<String, dynamic>.from(data));
+
+        throw Exception('Unexpected response when creating customer');
+      } else {
+        String errorMessage;
+        try {
+          final error = jsonDecode(response.body);
+          errorMessage =
+              error['message'] ?? error['error'] ?? 'Failed to create customer';
+        } catch (e) {
+          errorMessage = 'Server error: ${response.statusCode}';
+        }
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
 }

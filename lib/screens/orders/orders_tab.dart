@@ -41,7 +41,7 @@ class _OrdersTabState extends State<OrdersTab> {
             _buildAppBar(),
             const SliverToBoxAdapter(child: OrderFilters()),
             const SliverToBoxAdapter(child: OrderStats()),
-            const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space4)),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
             if (provider.error != null)
               SliverToBoxAdapter(child: _buildError(provider.error!)),
             const OrderList(),
@@ -56,54 +56,78 @@ class _OrdersTabState extends State<OrdersTab> {
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 120,
+      expandedHeight: 100, // Reduced from 120
       floating: true,
       pinned: true,
       elevation: 0,
       backgroundColor: AppColors.surface,
       surfaceTintColor: AppColors.surface,
       flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space4,
-          vertical: AppTokens.space4,
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+        titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmall = constraints.maxWidth < 360;
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  'Orders',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface,
+                // Title section - Flexible to prevent overflow
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Orders',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.onSurface,
+                              fontSize: isSmall ? 16 : 18,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (!isSmall) // Hide subtitle on very small screens
+                        Text(
+                          'Manage orders',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
-                Text(
-                  'Manage customer orders',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
+
+                const SizedBox(width: 8),
+
+                // Action buttons - compact on small screens
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _IconButton(
+                      icon: Icons.refresh_rounded,
+                      onTap: () => context.read<OrderProvider>().loadOrders(),
+                      size: isSmall ? 32 : 36,
+                      iconSize: isSmall ? 18 : 20,
+                    ),
+                    const SizedBox(width: 8),
+                    _IconButton(
+                      icon: Icons.logout_rounded,
+                      onTap: () => _logout(context),
+                      size: isSmall ? 32 : 36,
+                      iconSize: isSmall ? 18 : 20,
+                    ),
+                  ],
                 ),
               ],
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _IconButton(
-                  icon: Icons.refresh_rounded,
-                  onTap: () => context.read<OrderProvider>().loadOrders(),
-                ),
-                const SizedBox(width: AppTokens.space2),
-                _IconButton(
-                  icon: Icons.logout_rounded,
-                  onTap: () => _logout(context),
-                ),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -111,20 +135,17 @@ class _OrdersTabState extends State<OrdersTab> {
 
   Widget _buildError(String error) {
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppTokens.space4,
-        vertical: AppTokens.space2,
-      ),
-      padding: const EdgeInsets.all(AppTokens.space4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.error.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.error.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
-          const SizedBox(width: AppTokens.space3),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               error,
@@ -133,11 +154,15 @@ class _OrdersTabState extends State<OrdersTab> {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           IconButton(
             icon: Icon(Icons.refresh, color: AppColors.error, size: 20),
             onPressed: () => context.read<OrderProvider>().loadOrders(),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
           ),
         ],
       ),
@@ -145,6 +170,8 @@ class _OrdersTabState extends State<OrdersTab> {
   }
 
   Widget _buildFAB() {
+    final isSmall = MediaQuery.of(context).size.width < 360;
+
     return FloatingActionButton.extended(
       onPressed: () => Navigator.push(
         context,
@@ -153,10 +180,10 @@ class _OrdersTabState extends State<OrdersTab> {
       backgroundColor: AppColors.primary,
       foregroundColor: AppColors.onPrimary,
       elevation: 0,
-      icon: const Icon(Icons.add_rounded),
-      label: const Text(
-        'New Order',
-        style: TextStyle(fontWeight: FontWeight.w600),
+      icon: const Icon(Icons.add_rounded, size: 20),
+      label: Text(
+        isSmall ? 'New' : 'New Order', // Shorter text on small screens
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
       ),
     );
   }
@@ -165,11 +192,12 @@ class _OrdersTabState extends State<OrdersTab> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusXLarge),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Logout', style: TextStyle(fontSize: 18)),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(fontSize: 14),
         ),
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -194,20 +222,29 @@ class _OrdersTabState extends State<OrdersTab> {
 class _IconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final double size;
+  final double iconSize;
 
-  const _IconButton({required this.icon, required this.onTap});
+  const _IconButton({
+    required this.icon,
+    required this.onTap,
+    this.size = 36,
+    this.iconSize = 20,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.primaryContainer,
-      borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.all(AppTokens.space2),
-          child: Icon(icon, color: AppColors.primary, size: 20),
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          child: Icon(icon, color: AppColors.primary, size: iconSize),
         ),
       ),
     );

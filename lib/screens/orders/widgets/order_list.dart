@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
 import '../../../providers/order_provider.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../edit_order/edit_order_screen.dart';
 import 'order_card.dart';
 import 'order_actions.dart';
@@ -15,8 +16,60 @@ class OrderList extends StatelessWidget {
     final provider = context.watch<OrderProvider>();
 
     if (provider.isLoading && provider.filteredOrders.isEmpty) {
-      return const SliverFillRemaining(
-        child: Center(child: CircularProgressIndicator()),
+      // Show skeleton placeholders matching OrderCard shape
+      return SliverList(
+        delegate: SliverChildBuilderDelegate((context, index) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space4,
+              vertical: AppTokens.space4,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(AppTokens.space3),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      SkeletonBox(width: 100, height: 16),
+                      SizedBox(width: AppTokens.space3),
+                      SkeletonBox(width: 80, height: 12),
+                    ],
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  Row(
+                    children: const [
+                      SkeletonBox(
+                        width: 40,
+                        height: 40,
+                        borderRadius: BorderRadius.all(Radius.circular(40)),
+                      ),
+                      SizedBox(width: AppTokens.space3),
+                      Expanded(
+                        child: SkeletonBox(width: double.infinity, height: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  const SkeletonBox(width: double.infinity, height: 12),
+                  const SizedBox(height: AppTokens.space2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      SkeletonBox(width: 120, height: 36),
+                      SkeletonBox(width: 80, height: 36),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }, childCount: 4),
       );
     }
 

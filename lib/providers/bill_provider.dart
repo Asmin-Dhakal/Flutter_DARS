@@ -134,6 +134,31 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
+  // Load bills with optional filters (page, limit, paymentStatus)
+  Future<void> loadBillsFiltered({
+    int page = 1,
+    int limit = 10,
+    String? paymentStatus,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _bills = await _billService.getAllBills(
+        page: page,
+        limit: limit,
+        paymentStatus: paymentStatus,
+      );
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   // Load customers with unbilled orders
   Future<void> loadUnbilledCustomers() async {
     _isLoading = true;

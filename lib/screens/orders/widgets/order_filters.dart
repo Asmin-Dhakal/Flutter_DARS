@@ -25,35 +25,35 @@ class OrderFilters extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'Filters',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
-              // Billing Status Filter
-              Expanded(
-                child: _buildDropdown(
-                  value:
-                      provider.billingStatusOptions[provider
-                          .billingStatusFilter] ??
-                      'Unbilled & Partial',
-                  items: provider.billingStatusOptions.values.toList(),
-                  icon: Icons.receipt_outlined,
-                  onChanged: (value) {
-                    final entry = provider.billingStatusOptions.entries
-                        .firstWhere((e) => e.value == value);
-                    provider.setBillingStatusFilter(entry.key);
-                  },
+              Icon(Icons.filter_list, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Filters',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _buildDropdown(
+            value:
+                provider.billingStatusOptions[provider.billingStatusFilter] ??
+                'Unbilled & Partial',
+            items: provider.billingStatusOptions.values.toList(),
+            icon: Icons.receipt_outlined,
+            onChanged: (value) {
+              final entry = provider.billingStatusOptions.entries.firstWhere(
+                (e) => e.value == value,
+              );
+              provider.setBillingStatusFilter(entry.key);
+            },
           ),
         ],
       ),
@@ -67,6 +67,7 @@ class OrderFilters extends StatelessWidget {
     required Function(String) onChanged,
   }) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -76,22 +77,51 @@ class OrderFilters extends StatelessWidget {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
-          isExpanded: true,
+          isExpanded: true, // Critical: prevents overflow
           icon: const Icon(Icons.keyboard_arrow_down, size: 20),
           style: TextStyle(
             color: Colors.grey.shade800,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-          items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Row(
+          selectedItemBuilder: (context) {
+            // Custom builder for selected item to handle overflow
+            return items.map((String item) {
+              return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(icon, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 8),
-                  Flexible(child: Text(item, overflow: TextOverflow.ellipsis)),
+                  Flexible(
+                    child: Text(
+                      item,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade800,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList();
+          },
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Row(
+                children: [
+                  Icon(icon, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    // Use Expanded in dropdown items
+                    child: Text(
+                      item,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
                 ],
               ),
             );

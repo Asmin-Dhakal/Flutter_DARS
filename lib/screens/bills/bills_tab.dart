@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/bill.dart';
 import '../../providers/bill_provider.dart';
-import '../../services/bill_service.dart';
 import 'widgets/bill_card.dart';
 import 'widgets/create_bill_modal.dart';
 import 'widgets/empty_bills_state.dart';
 import 'widgets/status_filter.dart';
+import '../../core/widgets/skeleton.dart';
 import 'create_bill_screen.dart';
 
 class BillsTab extends StatefulWidget {
@@ -36,16 +36,13 @@ class _BillsTabState extends State<BillsTab> {
   }
 
   Future<void> _loadBills() async {
+    // Use provider's filtered loader so `isLoading` is toggled
     try {
-      final bills = await context.read<BillService>().getAllBills(
+      await context.read<BillProvider>().loadBillsFiltered(
         page: 1,
         limit: 10,
         paymentStatus: _selectedStatus == 'all' ? null : _selectedStatus,
       );
-
-      if (mounted) {
-        context.read<BillProvider>().setBills(bills);
-      }
     } catch (e) {
       if (mounted) {
         _showErrorSnackBar('Error loading bills: $e');
@@ -155,30 +152,69 @@ class _BillsTabState extends State<BillsTab> {
             ),
             SliverToBoxAdapter(child: SizedBox(height: AppTokens.space2)),
             if (billProvider.isLoading && billProvider.bills.isEmpty)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTokens.space4,
+                      vertical: AppTokens.space3,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppTokens.space4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusLarge,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const SkeletonBox(width: 100, height: 16),
+                              const SizedBox(width: AppTokens.space3),
+                              const SkeletonBox(width: 60, height: 14),
+                            ],
+                          ),
+                          const SizedBox(height: AppTokens.space3),
+                          const SkeletonBox(width: double.infinity, height: 14),
+                          const SizedBox(height: AppTokens.space2),
+                          const SkeletonBox(width: double.infinity, height: 14),
+                          const SizedBox(height: AppTokens.space3),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: const [
+                              SkeletonBox(width: 120, height: 36),
+                              SkeletonBox(width: 80, height: 36),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }, childCount: 4),
               )
             else if (billProvider.bills.isEmpty)
-              SliverFillRemaining(child: EmptyBillsState(onCreateBill: _showCreateBillFlow))
+              SliverFillRemaining(
+                child: EmptyBillsState(onCreateBill: _showCreateBillFlow),
+              )
             else
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final bill = billProvider.bills[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTokens.space4,
-                      ),
-                      child: BillCard(
-                        bill: bill,
-                        onDelete: () => _deleteBill(bill),
-                        onPay: () => _onPaymentSuccess(bill),
-                        onPayWithBill: (b) => _onPaymentSuccess(b),
-                      ),
-                    );
-                  },
-                  childCount: billProvider.bills.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final bill = billProvider.bills[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTokens.space4,
+                    ),
+                    child: BillCard(
+                      bill: bill,
+                      onDelete: () => _deleteBill(bill),
+                      onPay: () => _onPaymentSuccess(bill),
+                      onPayWithBill: (b) => _onPaymentSuccess(b),
+                    ),
+                  );
+                }, childCount: billProvider.bills.length),
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
@@ -227,5 +263,4 @@ class _BillsTabState extends State<BillsTab> {
       ),
     );
   }
-
 }

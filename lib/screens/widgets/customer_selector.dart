@@ -230,60 +230,104 @@ class _CustomerSelectorState extends State<CustomerSelector> {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
     final emailController = TextEditingController();
+    String? selectedGender;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusXLarge),
-        ),
-        title: const Text('Add New Customer'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name *',
-                hintText: 'Customer name',
-              ),
-              textCapitalization: TextCapitalization.words,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final provider = context.read<CustomerProvider>();
+          final isCreating = provider.isLoading;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radiusXLarge),
             ),
-            const SizedBox(height: AppTokens.space3),
-            TextField(
-              controller: phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                hintText: 'Phone number',
-              ),
-              keyboardType: TextInputType.phone,
+            title: const Text('Add New Customer'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    hintText: 'Customer name',
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: AppTokens.space3),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone',
+                    hintText: 'Phone number',
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: AppTokens.space3),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'Email address',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: AppTokens.space3),
+                DropdownButtonFormField<String>(
+                  value: selectedGender,
+                  decoration: const InputDecoration(labelText: 'Gender'),
+                  items: const [
+                    DropdownMenuItem(value: 'male', child: Text('Male')),
+                    DropdownMenuItem(value: 'female', child: Text('Female')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (v) => setState(() => selectedGender = v),
+                ),
+              ],
             ),
-            const SizedBox(height: AppTokens.space3),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'Email address',
+            actions: [
+              TextButton(
+                onPressed: isCreating ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (nameController.text.trim().isNotEmpty) {
-                // TODO: Implement customer creation
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
+              FilledButton(
+                onPressed: isCreating
+                    ? null
+                    : () async {
+                        final name = nameController.text.trim();
+                        final phone = phoneController.text.trim();
+                        final email = emailController.text.trim();
+
+                        if (name.isEmpty) return;
+
+                        // Call provider to create customer
+                        final created = await provider.createCustomer(
+                          name: name,
+                          number: phone.isEmpty ? null : phone,
+                          email: email.isEmpty ? null : email,
+                          gender: selectedGender,
+                        );
+
+                        if (created != null) {
+                          // Auto-select the new customer
+                          widget.onSelect(created);
+                          Navigator.pop(context);
+                        } else {
+                          // Keep dialog open; provider.error will show elsewhere
+                        }
+                      },
+                child: provider.isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Create'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

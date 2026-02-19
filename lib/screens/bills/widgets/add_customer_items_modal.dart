@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/bill.dart';
 import '../../../providers/bill_provider.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 
 class AddCustomerItemsModal extends StatefulWidget {
   final String? excludeCustomerId;
@@ -72,8 +74,15 @@ class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
             if (billProvider.isLoading && availableCustomers.isEmpty)
               const Center(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
+                  padding: EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SkeletonBox(width: 220, height: 18),
+                      SizedBox(height: AppTokens.space2),
+                      SkeletonBox(width: 160, height: 12),
+                    ],
+                  ),
                 ),
               )
             else if (availableCustomers.isEmpty)

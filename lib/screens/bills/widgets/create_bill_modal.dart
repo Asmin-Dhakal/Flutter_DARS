@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/bill.dart';
 import '../../../providers/bill_provider.dart';
+import '../../../core/widgets/skeleton.dart';
 
 class CreateBillModal extends StatefulWidget {
   const CreateBillModal({super.key});
@@ -75,7 +76,20 @@ class _CreateBillModalState extends State<CreateBillModal> {
             const SizedBox(height: 20),
 
             if (_isLoading || billProvider.isLoading)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
+              Expanded(
+                child: Column(
+                  children: const [
+                    SizedBox(height: 8),
+                    SkeletonBox(width: double.infinity, height: 18),
+                    SizedBox(height: 12),
+                    SkeletonBox(width: double.infinity, height: 12),
+                    SizedBox(height: 8),
+                    SkeletonBox(width: double.infinity, height: 12),
+                    SizedBox(height: 12),
+                    SkeletonBox(width: double.infinity, height: 12),
+                  ],
+                ),
+              )
             else if (availableCustomers.isEmpty)
               Expanded(
                 child: Center(

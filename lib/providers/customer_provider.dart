@@ -63,4 +63,36 @@ class CustomerProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  /// Create a new customer and insert into the local list
+  Future<Customer?> createCustomer({
+    required String name,
+    String? number,
+    String? email,
+    String? gender,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final customer = await CustomerService.createCustomer(
+        name: name,
+        number: number,
+        email: email,
+        gender: gender,
+      );
+
+      // Prepend to local list for immediate UX
+      _customers.insert(0, customer);
+      _isLoading = false;
+      notifyListeners();
+      return customer;
+    } catch (e) {
+      _isLoading = false;
+      _error = e.toString();
+      notifyListeners();
+      return null;
+    }
+  }
 }

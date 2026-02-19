@@ -10,33 +10,49 @@ class OrderStats extends StatelessWidget {
     final provider = context.watch<OrderProvider>();
     final orders = provider.filteredOrders;
 
+    // Mobile-first: Use Wrap for automatic responsiveness
+    // On very small screens, cards will stack vertically
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          _buildCard(
-            label: 'Total',
-            value: '${orders.length}',
-            icon: Icons.receipt_long,
-            color: Colors.blue,
-          ),
-          const SizedBox(width: 16),
-          _buildCard(
-            label: 'Pending',
-            value:
-                '${orders.where((o) => o.status.toLowerCase() == 'notreceived').length}',
-            icon: Icons.pending_actions,
-            color: Colors.orange,
-          ),
-          const SizedBox(width: 16),
-          _buildCard(
-            label: 'Completed',
-            value:
-                '${orders.where((o) => o.status.toLowerCase() == 'completed').length}',
-            icon: Icons.done_all,
-            color: Colors.green,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isVerySmall = constraints.maxWidth < 360;
+          final cardWidth = isVerySmall ? constraints.maxWidth : null;
+
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.spaceBetween,
+            children: [
+              _buildCard(
+                label: 'Total',
+                value: '${orders.length}',
+                icon: Icons.receipt_long,
+                color: Colors.blue,
+                width: cardWidth,
+                flex: 1,
+              ),
+              _buildCard(
+                label: 'Pending',
+                value:
+                    '${orders.where((o) => o.status.toLowerCase() == 'notreceived').length}',
+                icon: Icons.pending_actions,
+                color: Colors.orange,
+                width: cardWidth,
+                flex: 1,
+              ),
+              _buildCard(
+                label: 'Done',
+                value:
+                    '${orders.where((o) => o.status.toLowerCase() == 'completed').length}',
+                icon: Icons.done_all,
+                color: Colors.green,
+                width: cardWidth,
+                flex: 1,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -46,31 +62,45 @@ class OrderStats extends StatelessWidget {
     required String value,
     required IconData icon,
     required MaterialColor color,
+    double? width,
+    required int flex,
   }) {
-    return Expanded(
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minWidth: 90),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
