@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/bill.dart';
+import '../models/paginated_response.dart';
 import 'auth_service.dart';
 
 class BillService {
@@ -34,8 +35,8 @@ class BillService {
     }
   }
 
-  // Get all bills with optional filters
-  Future<List<Bill>> getAllBills({
+  // Get all bills with optional filters - NOW RETURNS PAGINATED RESPONSE
+  Future<PaginatedResponse<Bill>> getAllBills({
     int page = 1,
     int limit = 10,
     String? paymentStatus,
@@ -60,24 +61,26 @@ class BillService {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
-      final List<dynamic> docs = data['docs'] ?? [];
-      return docs.map((json) => Bill.fromJson(json)).toList();
+      return PaginatedResponse<Bill>.fromJson(
+        data,
+        (json) => Bill.fromJson(json),
+      );
     } else {
       throw Exception('Failed to load bills: ${response.body}');
     }
   }
 
-  // Create bill - FIXED: use 'items' not 'orderedItems'
+  // Create bill
   Future<Bill> createBill({
     required String customerId,
-    required List<Map<String, dynamic>> items, // Changed from orderedItems
+    required List<Map<String, dynamic>> items,
     required String createdBy,
     String? notes,
   }) async {
     final headers = await _headers;
     final body = {
       'customer': customerId,
-      'items': items, // Changed from orderedItems to items
+      'items': items,
       'createdBy': createdBy,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
     };

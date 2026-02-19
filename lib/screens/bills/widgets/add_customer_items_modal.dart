@@ -15,7 +15,7 @@ class AddCustomerItemsModal extends StatefulWidget {
 }
 
 class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
-  UnbilledCustomer? _selectedCustomer;
+  String? _selectedCustomerId;
 
   @override
   void initState() {
@@ -34,6 +34,18 @@ class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
     final availableCustomers = billProvider.unbilledCustomers.where((customer) {
       return customer.id != widget.excludeCustomerId;
     }).toList();
+
+    final selectedCustomer = _selectedCustomerId != null
+        ? availableCustomers.firstWhere(
+            (c) => c.id == _selectedCustomerId,
+            orElse: () => null as UnbilledCustomer, // Will be null if not found
+          )
+        : null;
+
+    final effectiveSelectedCustomer =
+        availableCustomers.any((c) => c.id == _selectedCustomerId)
+        ? selectedCustomer
+        : null;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -106,7 +118,7 @@ class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<UnbilledCustomer>(
                     isExpanded: true,
-                    value: _selectedCustomer,
+                    value: effectiveSelectedCustomer,
                     hint: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12),
                       child: Text('Choose a customer...'),
@@ -163,7 +175,8 @@ class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
                     }).toList(),
                     onChanged: (customer) {
                       setState(() {
-                        _selectedCustomer = customer;
+                        _selectedCustomerId =
+                            customer?.id; // Store ID, not object
                       });
                     },
                   ),
@@ -181,9 +194,11 @@ class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: _selectedCustomer == null
+                  onPressed: effectiveSelectedCustomer == null
                       ? null
-                      : () => Navigator.of(context).pop(_selectedCustomer),
+                      : () => Navigator.of(
+                          context,
+                        ).pop(effectiveSelectedCustomer),
                   child: const Text('Add Items'),
                 ),
               ],

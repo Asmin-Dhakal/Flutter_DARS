@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// Optimized dialog for low-end devices
+/// Optimized dialog for all screen sizes
 /// Uses your AppColors and AppTokens
 class ModernConfirmDialog extends StatelessWidget {
   final String title;
@@ -27,16 +27,29 @@ class ModernConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isSmall = size.width < 360;
+    final isVerySmall = size.width < 320;
+
     return Dialog(
       backgroundColor: AppColors.surface,
       elevation: 0,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isSmall ? 16 : 24,
+        vertical: isSmall ? 16 : 24,
+      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusXLarge),
+        borderRadius: BorderRadius.circular(
+          isSmall ? 16 : AppTokens.radiusXLarge,
+        ),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
+        constraints: BoxConstraints(
+          maxWidth: 400,
+          minWidth: isVerySmall ? 280 : 320,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(AppTokens.space6),
+          padding: EdgeInsets.all(isSmall ? 16 : AppTokens.space6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,42 +58,56 @@ class ModernConfirmDialog extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(AppTokens.space3),
+                    padding: EdgeInsets.all(isSmall ? 8 : AppTokens.space3),
                     decoration: BoxDecoration(
                       color: iconColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(
-                        AppTokens.radiusLarge,
+                        isSmall ? 10 : AppTokens.radiusLarge,
                       ),
                     ),
-                    child: Icon(icon, color: iconColor, size: 24),
+                    child: Icon(
+                      icon,
+                      color: iconColor,
+                      size: isSmall ? 20 : 24,
+                    ),
                   ),
-                  const SizedBox(width: AppTokens.space3),
+                  SizedBox(width: isSmall ? 10 : AppTokens.space3),
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: isSmall ? 18 : null,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: AppTokens.space4),
+              SizedBox(height: isSmall ? 12 : AppTokens.space4),
 
               // Message
               Text(
                 message,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: AppColors.onSurfaceVariant,
+                  fontSize: isSmall ? 14 : null,
                 ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
 
               // Warning if provided
               if (warning != null) ...[
-                const SizedBox(height: AppTokens.space4),
+                SizedBox(height: isSmall ? 12 : AppTokens.space4),
                 Container(
-                  padding: const EdgeInsets.all(AppTokens.space3),
+                  padding: EdgeInsets.all(isSmall ? 10 : AppTokens.space3),
                   decoration: BoxDecoration(
                     color: AppColors.error.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                    borderRadius: BorderRadius.circular(
+                      isSmall ? 8 : AppTokens.radiusMedium,
+                    ),
                     border: Border.all(color: AppColors.error.withOpacity(0.2)),
                   ),
                   child: Row(
@@ -88,14 +115,19 @@ class ModernConfirmDialog extends StatelessWidget {
                       Icon(
                         Icons.warning_amber_rounded,
                         color: AppColors.error,
-                        size: 20,
+                        size: isSmall ? 18 : 20,
                       ),
-                      const SizedBox(width: AppTokens.space2),
+                      SizedBox(width: isSmall ? 8 : AppTokens.space2),
                       Expanded(
                         child: Text(
                           warning!,
                           style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.error),
+                              ?.copyWith(
+                                color: AppColors.error,
+                                fontSize: isSmall ? 12 : null,
+                              ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -103,31 +135,102 @@ class ModernConfirmDialog extends StatelessWidget {
                 ),
               ],
 
-              const SizedBox(height: AppTokens.space6),
+              SizedBox(height: isSmall ? 16 : AppTokens.space6),
 
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: AppTokens.space2),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: isDestructive
-                          ? AppColors.error
-                          : confirmColor,
-                      foregroundColor: isDestructive
-                          ? AppColors.onError
-                          : AppColors.onPrimary,
+              // Actions - Stack vertically on very small screens
+              isVerySmall
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: isDestructive
+                                  ? AppColors.error
+                                  : confirmColor,
+                              foregroundColor: isDestructive
+                                  ? AppColors.onError
+                                  : AppColors.onPrimary,
+                              padding: EdgeInsets.symmetric(
+                                vertical: isSmall ? 12 : 16,
+                              ),
+                            ),
+                            child: Text(
+                              confirmText,
+                              style: TextStyle(
+                                fontSize: isSmall ? 13 : 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: isSmall ? 8 : 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.symmetric(
+                                vertical: isSmall ? 12 : 16,
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(fontSize: isSmall ? 13 : 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmall ? 12 : 16,
+                              vertical: isSmall ? 8 : 12,
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(fontSize: isSmall ? 13 : 14),
+                          ),
+                        ),
+                        SizedBox(width: isSmall ? 8 : AppTokens.space2),
+                        Flexible(
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: isDestructive
+                                  ? AppColors.error
+                                  : confirmColor,
+                              foregroundColor: isDestructive
+                                  ? AppColors.onError
+                                  : AppColors.onPrimary,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isSmall ? 16 : 24,
+                                vertical: isSmall ? 10 : 16,
+                              ),
+                            ),
+                            child: Text(
+                              confirmText,
+                              style: TextStyle(
+                                fontSize: isSmall ? 13 : 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Text(confirmText),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

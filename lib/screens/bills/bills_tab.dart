@@ -8,6 +8,7 @@ import 'widgets/create_bill_modal.dart';
 import 'widgets/empty_bills_state.dart';
 import 'widgets/status_filter.dart';
 import '../../core/widgets/skeleton.dart';
+import 'widgets/bill_pagination.dart';
 import 'create_bill_screen.dart';
 
 class BillsTab extends StatefulWidget {
@@ -53,7 +54,12 @@ class _BillsTabState extends State<BillsTab> {
     setState(() {
       _selectedStatus = status;
     });
-    _loadBills();
+    // Reset to page 1 when filter changes
+    context.read<BillProvider>().loadBillsFiltered(
+      page: 1,
+      limit: 10,
+      paymentStatus: status == 'all' ? null : status,
+    );
   }
 
   Future<void> _deleteBill(Bill bill) async {
@@ -177,6 +183,13 @@ class _BillsTabState extends State<BillsTab> {
                   );
                 }, childCount: billProvider.bills.length),
               ),
+            // Add pagination widget at the bottom of the list
+            SliverToBoxAdapter(
+              child: billProvider.isLoading
+                  ? const SizedBox.shrink()
+                  : const BillPagination(),
+            ),
+            // Bottom spacing for FAB
             SliverToBoxAdapter(child: SizedBox(height: isSmall ? 80 : 100)),
           ],
         ),

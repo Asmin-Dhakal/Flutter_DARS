@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/bill.dart';
+import '../models/paginated_response.dart';
 import '../services/bill_service.dart';
 import '../services/payment_service.dart';
 import '../models/payment_method.dart';
@@ -10,7 +11,7 @@ class BillProvider extends ChangeNotifier {
 
   BillProvider({
     required BillService billService,
-    PaymentService? paymentService, // Optional for backward compatibility
+    PaymentService? paymentService,
   }) : _billService = billService,
        _paymentService = paymentService;
 
@@ -35,6 +36,25 @@ class BillProvider extends ChangeNotifier {
   UnbilledCustomer? _selectedCustomer;
   UnbilledCustomer? get selectedCustomer => _selectedCustomer;
 
+  // Pagination fields
+  int _currentPage = 1;
+  int get currentPage => _currentPage;
+
+  int _totalPages = 1;
+  int get totalPages => _totalPages;
+
+  int _totalDocs = 0;
+  int get totalDocs => _totalDocs;
+
+  final int _limit = 10;
+  int get limit => _limit;
+
+  bool get hasNextPage => _currentPage < _totalPages;
+  bool get hasPrevPage => _currentPage > 1;
+
+  String? _currentPaymentStatus;
+  String? get currentPaymentStatus => _currentPaymentStatus;
+
   Future<void> loadPaymentMethods() async {
     if (_paymentService == null) {
       _error = 'Payment service not initialized';
@@ -42,7 +62,6 @@ class BillProvider extends ChangeNotifier {
       return;
     }
 
-    // Check if token is empty
     if (_paymentService.token.isEmpty) {
       _error = 'Authentication token is missing. Please login again.';
       notifyListeners();
@@ -64,13 +83,11 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
-  // Select payment method
   void selectPaymentMethod(PaymentMethod? method) {
     _selectedPaymentMethod = method;
     notifyListeners();
   }
 
-  // Mark bill as paid
   Future<bool> markBillAsPaid({
     required String billId,
     required String paymentMethodId,
@@ -93,15 +110,16 @@ class BillProvider extends ChangeNotifier {
         notes: notes,
       );
 
-      // Update the bill in the list with new status
       final index = _bills.indexWhere((b) => b.id == billId);
       if (index != -1) {
-        // Reload bills to get updated status
-        await loadBills();
+        await loadBillsFiltered(
+          page: _currentPage,
+          paymentStatus: _currentPaymentStatus,
+        );
       }
 
       _isLoading = false;
-      _selectedPaymentMethod = null; // Reset selection
+      _selectedPaymentMethod = null;
       notifyListeners();
       return true;
     } catch (e) {
@@ -117,24 +135,11 @@ class BillProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Load all bills
   Future<void> loadBills() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      _bills = await _billService.getAllBills();
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _error = e.toString();
-      notifyListeners();
-    }
+    await loadBillsFiltered(page: 1);
   }
 
-  // Load bills with optional filters (page, limit, paymentStatus)
+  // Updated to handle pagination properly
   Future<void> loadBillsFiltered({
     int page = 1,
     int limit = 10,
@@ -142,14 +147,22 @@ class BillProvider extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _error = null;
+    _currentPage = page;
+    _currentPaymentStatus = paymentStatus;
     notifyListeners();
 
     try {
-      _bills = await _billService.getAllBills(
+      final PaginatedResponse<Bill> result = await _billService.getAllBills(
         page: page,
         limit: limit,
         paymentStatus: paymentStatus,
       );
+
+      _bills = result.docs;
+      _currentPage = result.page;
+      _totalPages = result.totalPages;
+      _totalDocs = result.totalDocs;
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -159,7 +172,37 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
-  // Load customers with unbilled orders
+  // Pagination navigation methods
+  Future<void> nextPage() async {
+    if (hasNextPage) {
+      await loadBillsFiltered(
+        page: _currentPage + 1,
+        limit: _limit,
+        paymentStatus: _currentPaymentStatus,
+      );
+    }
+  }
+
+  Future<void> prevPage() async {
+    if (hasPrevPage) {
+      await loadBillsFiltered(
+        page: _currentPage - 1,
+        limit: _limit,
+        paymentStatus: _currentPaymentStatus,
+      );
+    }
+  }
+
+  Future<void> goToPage(int page) async {
+    if (page >= 1 && page <= _totalPages) {
+      await loadBillsFiltered(
+        page: page,
+        limit: _limit,
+        paymentStatus: _currentPaymentStatus,
+      );
+    }
+  }
+
   Future<void> loadUnbilledCustomers() async {
     _isLoading = true;
     _error = null;
@@ -176,16 +219,14 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
-  // Select customer for bill creation
   void selectCustomer(UnbilledCustomer? customer) {
     _selectedCustomer = customer;
     notifyListeners();
   }
 
-  // Create bill - FIXED: changed 'items' to 'orderedItems' to match API
   Future<Bill?> createBill({
     required String customerId,
-    required List<Map<String, dynamic>> orderedItems, // Changed from 'items'
+    required List<Map<String, dynamic>> orderedItems,
     required String createdBy,
     String? notes,
   }) async {
@@ -196,7 +237,7 @@ class BillProvider extends ChangeNotifier {
     try {
       final bill = await _billService.createBill(
         customerId: customerId,
-        items: orderedItems, // Pass as orderedItems
+        items: orderedItems,
         createdBy: createdBy,
         notes: notes,
       );
@@ -212,9 +253,7 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
-  // Delete bill
   Future<bool> deleteBill(String id) async {
-    // Remove from list immediately for UI update
     _bills.removeWhere((bill) => bill.id == id);
     notifyListeners();
 
@@ -228,7 +267,6 @@ class BillProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      // If failed, reload to restore
       _isLoading = false;
       _error = e.toString();
       notifyListeners();
@@ -236,7 +274,6 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
-  // Set bills directly (used by filtered loading)
   void setBills(List<Bill> bills) {
     _bills = bills;
     _isLoading = false;
