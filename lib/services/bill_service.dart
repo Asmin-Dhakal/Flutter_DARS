@@ -1,28 +1,18 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../models/bill.dart';
 import '../models/paginated_response.dart';
-import 'auth_service.dart';
+import 'authenticated_http_client.dart';
 
 class BillService {
   final String baseUrl;
+  final AuthenticatedHttpClient _httpClient = AuthenticatedHttpClient();
 
   BillService({required this.baseUrl});
 
-  Future<Map<String, String>> get _headers async {
-    final token = await AuthService.getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
-
   // Get customers with unbilled orders
   Future<List<UnbilledCustomer>> getCustomersWithUnbilledOrders() async {
-    final headers = await _headers;
-    final response = await http.get(
+    final response = await _httpClient.get(
       Uri.parse('$baseUrl/cafe/orders/customers-with-unbilled'),
-      headers: headers,
     );
 
     if (response.statusCode == 200) {
@@ -35,14 +25,12 @@ class BillService {
     }
   }
 
-  // Get all bills with optional filters - NOW RETURNS PAGINATED RESPONSE
+  // Get all bills with optional filters
   Future<PaginatedResponse<Bill>> getAllBills({
     int page = 1,
     int limit = 10,
     String? paymentStatus,
   }) async {
-    final headers = await _headers;
-
     // Build query parameters
     final queryParams = <String, String>{
       'page': page.toString(),
@@ -57,7 +45,7 @@ class BillService {
       '$baseUrl/cafe/bills',
     ).replace(queryParameters: queryParams);
 
-    final response = await http.get(uri, headers: headers);
+    final response = await _httpClient.get(uri);
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
@@ -77,7 +65,6 @@ class BillService {
     required String createdBy,
     String? notes,
   }) async {
-    final headers = await _headers;
     final body = {
       'customer': customerId,
       'items': items,
@@ -85,9 +72,8 @@ class BillService {
       if (notes != null && notes.isNotEmpty) 'notes': notes,
     };
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       Uri.parse('$baseUrl/cafe/bills'),
-      headers: headers,
       body: json.encode(body),
     );
 
@@ -100,10 +86,8 @@ class BillService {
 
   // Get bill by ID
   Future<Bill> getBillById(String id) async {
-    final headers = await _headers;
-    final response = await http.get(
+    final response = await _httpClient.get(
       Uri.parse('$baseUrl/cafe/bills/$id'),
-      headers: headers,
     );
 
     if (response.statusCode == 200) {
@@ -115,10 +99,8 @@ class BillService {
 
   // Delete bill
   Future<void> deleteBill(String id) async {
-    final headers = await _headers;
-    final response = await http.delete(
+    final response = await _httpClient.delete(
       Uri.parse('$baseUrl/cafe/bills/$id'),
-      headers: headers,
     );
 
     if (response.statusCode != 200 && response.statusCode != 204) {

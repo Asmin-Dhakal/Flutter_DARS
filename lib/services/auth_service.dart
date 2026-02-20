@@ -1,58 +1,80 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/jwt_helpers.dart';
 
 class AuthService {
-  // Change this to your backend URL
-  // Your deployed backend URL - USE HTTPS!
   static const String baseUrl = 'https://dars-resturant-management.vercel.app';
-
   static const String _tokenKey = 'access_token';
   static const String _userKey = 'user_data';
+
+  /// Stream controller for logout events (for global logout notification)
+  static final List<VoidCallback> _logoutListeners = [];
+
+  /// Add logout listener
+  static void addLogoutListener(VoidCallback listener) {
+    _logoutListeners.add(listener);
+  }
+
+  /// Remove logout listener
+  static void removeLogoutListener(VoidCallback listener) {
+    _logoutListeners.remove(listener);
+  }
+
+  /// Notify all listeners to logout
+  static void notifyLogout() {
+    for (final listener in _logoutListeners) {
+      listener();
+    }
+  }
 
   /// Login with email and password
   static Future<LoginResult> login(String email, String password) async {
     try {
-      print('DEBUG: Logging in to $baseUrl/login'); // Debug print
+      print('DEBUG: Logging in to $baseUrl/login');
 
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json', // Explicitly request JSON
+          'Accept': 'application/json',
         },
         body: jsonEncode({'email': email, 'password': password}),
       );
 
-      print('DEBUG: Response status: ${response.statusCode}'); // Debug print
-      print('DEBUG: Response body: ${response.body}'); // Debug print
+      print('DEBUG: Response status: ${response.statusCode}');
+      print('DEBUG: Response body: ${response.body}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        // Validate token expiry immediately
+        final token = data['access_token'] as String?;
+        if (token == null || JwtHelper.isTokenExpired(token)) {
+          return LoginResult.error('Invalid or expired token received');
+        }
+
         // Save token and user data locally
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_tokenKey, data['access_token']);
+        await prefs.setString(_tokenKey, token);
         await prefs.setString(_userKey, jsonEncode(data['admin']));
 
         return LoginResult.success(
-          token: data['access_token'],
+          token: token,
           user: User.fromJson(data['admin']),
         );
       } else {
-        // Handle non-200 responses
         String errorMessage;
         try {
           final error = jsonDecode(response.body);
           errorMessage = error['message'] ?? 'Login failed';
         } catch (e) {
-          // If response is not JSON (HTML error page)
           errorMessage = 'Server error: ${response.statusCode}';
         }
         return LoginResult.error(errorMessage);
       }
     } catch (e) {
-      print('DEBUG: Error: $e'); // Debug print
+      print('DEBUG: Error: $e');
       return LoginResult.error('Network error: $e');
     }
   }
@@ -73,17 +95,50 @@ class AuthService {
     return null;
   }
 
-  /// Check if user is logged in
+  /// Check if user is logged in AND token is valid
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
-    return token != null && token.isNotEmpty;
+    if (token == null || token.isEmpty) return false;
+
+    // Check if token is expired
+    if (JwtHelper.isTokenExpired(token)) {
+      // Auto logout if expired
+      await logout();
+      return false;
+    }
+    return true;
   }
 
-  /// Logout - clear stored data
+  /// Check if token will expire soon (within 5 minutes)
+  static Future<bool> isTokenExpiringSoon() async {
+    final token = await getToken();
+    if (token == null) return true;
+
+    final timeUntilExpiry = JwtHelper.getTimeUntilExpiry(token);
+    if (timeUntilExpiry == null) return true;
+
+    // Consider "soon" as less than 5 minutes
+    return timeUntilExpiry.inMinutes < 5;
+  }
+
+  /// Logout - clear stored data and notify listeners
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
+
+    // Notify all listeners to redirect to login
+    notifyLogout();
+  }
+
+  /// Validate token and logout if invalid
+  static Future<bool> validateTokenOrLogout() async {
+    final isValid = await isLoggedIn();
+    if (!isValid) {
+      notifyLogout();
+      return false;
+    }
+    return true;
   }
 }
 
@@ -128,3 +183,5 @@ class LoginResult {
     return LoginResult._(success: false, error: message);
   }
 }
+
+typedef VoidCallback = void Function();
