@@ -38,6 +38,7 @@ class _AddCustomerItemsModalState extends State<AddCustomerItemsModal> {
     final selectedCustomer = _selectedCustomerId != null
         ? availableCustomers.firstWhere(
             (c) => c.id == _selectedCustomerId,
+            // ignore: cast_from_null_always_fails
             orElse: () => null as UnbilledCustomer, // Will be null if not found
           )
         : null;

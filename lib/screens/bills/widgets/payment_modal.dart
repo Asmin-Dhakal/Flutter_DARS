@@ -464,41 +464,6 @@ class _PaymentModalState extends State<PaymentModal> {
     );
   }
 
-  void _showPaymentDetails(BuildContext context, PaymentMethod method) {
-    final isSmall = MediaQuery.of(context).size.width < 360;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          method.paymentName,
-          style: TextStyle(fontSize: isSmall ? 18 : 20),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Details: ${method.paymentDetails}',
-              style: TextStyle(fontSize: isSmall ? 13 : 14),
-            ),
-            SizedBox(height: isSmall ? 6 : 8),
-            Text(
-              'Admin: ${method.admin.name}',
-              style: TextStyle(fontSize: isSmall ? 13 : 14),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _confirmPayment(BuildContext context) async {
     if (_selectedMethodId == null) {
       ScaffoldMessenger.of(context).showSnackBar(

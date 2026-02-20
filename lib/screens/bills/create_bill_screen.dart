@@ -5,7 +5,6 @@ import '../../services/menu_service.dart';
 import '../../services/auth_service.dart';
 import '../../providers/bill_provider.dart';
 import 'widgets/add_customer_items_modal.dart';
-import 'widgets/components/bill_item_card.dart';
 import 'widgets/components/customer_items_section.dart';
 import 'widgets/components/create_bill_controls.dart';
 import 'widgets/create_bill_header.dart';
@@ -215,7 +214,6 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       final itemMatch = RegExp(
         r'Cannot bill \d+ of "([^"]+)"',
       ).firstMatch(error);
-      final orderMatch = RegExp(r'from order ([^\.]+)').firstMatch(error);
       final remainingMatch = RegExp(r'Only (\d+) remaining').firstMatch(error);
       final pendingMatch = RegExp(
         r'pending in other bills: (\d+)',
@@ -278,7 +276,6 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isSmall = size.width < 360;
-    final isVerySmall = size.width < 320;
 
     return Scaffold(
       backgroundColor: Colors.black54,
