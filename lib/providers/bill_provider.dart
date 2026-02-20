@@ -104,6 +104,19 @@ class BillProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // MISSING: Actually call the payment service!
+      final _ = await _paymentService.markBillAsPaid(
+        billId: billId,
+        paymentMethodId: paymentMethodId,
+        notes: notes,
+      );
+
+      // Reload bills to get updated status
+      await loadBillsFiltered(
+        page: _currentPage,
+        paymentStatus: _currentPaymentStatus,
+      );
+
       final index = _bills.indexWhere((b) => b.id == billId);
       if (index != -1) {
         await loadBillsFiltered(
