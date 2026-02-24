@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import 'widgets/order_actions.dart';
+import 'edit_order/edit_order_screen.dart';
 
 /// Detailed view of a single order
 /// Shows all order information, items, and action buttons
@@ -39,6 +40,36 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         elevation: 0,
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.gray900,
+        actions: [
+          Consumer<OrderProvider>(
+            builder: (context, orderProvider, _) {
+              final order = orderProvider.orders.firstWhere(
+                (o) => o.id == widget.orderId,
+                orElse: () => Order(
+                  id: widget.orderId,
+                  orderNumber: widget.orderNumber,
+                  customerName: 'Unknown',
+                  createdBy: 'Unknown',
+                  status: 'unknown',
+                  billingStatus: 'unknown',
+                  orderedItems: [],
+                  totalAmount: 0.0,
+                  createdAt: DateTime.now(),
+                  isDeleted: false,
+                ),
+              );
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editOrder(context, order),
+                  tooltip: 'Edit Order',
+                ),
+              );
+            },
+          ),
+        ],
       ),
       backgroundColor: AppColors.gray100,
       body: Consumer<OrderProvider>(
@@ -353,7 +384,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'PKR ${item.priceAtOrder.toStringAsFixed(2)} per item',
+                  'NPR ${item.priceAtOrder.toStringAsFixed(2)} per item',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.gray600),
@@ -364,7 +395,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
           // Item total
           Text(
-            'PKR ${item.total.toStringAsFixed(2)}',
+            'NPR ${item.total.toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
@@ -395,7 +426,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           // Subtotal
           _buildSummaryRow(
             'Subtotal',
-            'PKR ${order.totalAmount.toStringAsFixed(2)}',
+            'NPR ${order.totalAmount.toStringAsFixed(2)}',
             isTotal: false,
           ),
           const SizedBox(height: 12),
@@ -405,7 +436,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           // Total
           _buildSummaryRow(
             'Total',
-            'PKR ${order.totalAmount.toStringAsFixed(2)}',
+            'NPR ${order.totalAmount.toStringAsFixed(2)}',
             isTotal: true,
           ),
         ],
@@ -580,5 +611,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Navigate to edit order screen
+  void _editOrder(BuildContext context, Order order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EditOrderScreen(order: order)),
+    );
   }
 }

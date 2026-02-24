@@ -6,6 +6,7 @@ import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../edit_order/edit_order_screen.dart';
+import '../order_details_page.dart';
 import 'order_card.dart';
 import 'order_actions.dart';
 
@@ -150,6 +151,7 @@ class _OrderItem extends StatelessWidget {
               ? () => actions.cancel(order.id)
               : null,
           onEdit: () => _editOrder(context, order),
+          onTap: () => _openOrderDetails(context, order),
         ),
       ),
     );
@@ -224,6 +226,16 @@ class _OrderItem extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => EditOrderScreen(order: order)),
+    );
+  }
+
+  void _openOrderDetails(BuildContext context, Order order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            OrderDetailsPage(orderId: order.id, orderNumber: order.orderNumber),
+      ),
     );
   }
 }

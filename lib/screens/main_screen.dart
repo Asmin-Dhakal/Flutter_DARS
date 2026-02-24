@@ -64,6 +64,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     // Start listening for order changes in Firestore
     _firestoreOrderService.startListening();
 
+    // Register callback for notification taps
+    NotificationServices.onNotificationTapped = _handleNotificationTap;
+
     // Handle notification tap to navigate to order details
     _setupNotificationTapHandler();
 
@@ -77,17 +80,25 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   /// Setup handler for when user taps on a notification
   void _setupNotificationTapHandler() {
+    // Handle notification tap when app is launched from notification
     _notificationServices.flutterLocalNotificationsPlugin
         .getNotificationAppLaunchDetails()
         .then((details) {
           if (details?.didNotificationLaunchApp ?? false) {
-            // App was launched from notification
             final payload = details?.notificationResponse?.payload;
             if (payload != null && payload.isNotEmpty) {
-              _navigateToOrderDetails(payload);
+              Future.delayed(const Duration(milliseconds: 500), () {
+                _handleNotificationTap(payload);
+              });
             }
           }
         });
+  }
+
+  /// Handle notification tap from either launch details or callback
+  void _handleNotificationTap(String payload) {
+    debugPrint('📲 Handling notification tap with payload: $payload');
+    _navigateToOrderDetails(payload);
   }
 
   /// Navigate to order details page when notification is tapped

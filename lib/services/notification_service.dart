@@ -13,6 +13,9 @@ class NotificationServices {
   static final FlutterLocalNotificationsPlugin _backgroundNotificationPlugin =
       FlutterLocalNotificationsPlugin();
 
+  // Callback for notification taps
+  static Function(String)? onNotificationTapped;
+
   // Define a constant channel
   static const AndroidNotificationChannel channel = AndroidNotificationChannel(
     'high_importance_channel',
@@ -47,11 +50,14 @@ class NotificationServices {
     await _flutterLocalNotificationsPlugin.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap
+        // Handle notification tap when app is already open
         final payload = response.payload;
         if (payload != null && payload.isNotEmpty) {
-          debugPrint('Notification tapped with payload: $payload');
-          // Notify listeners about the tap - they can handle navigation
+          debugPrint('🔔 Notification tapped with payload: $payload');
+          // Call the registered callback
+          if (onNotificationTapped != null) {
+            onNotificationTapped!(payload);
+          }
         }
       },
     );
@@ -63,7 +69,12 @@ class NotificationServices {
         // Handle notification tap in background
         final payload = response.payload;
         if (payload != null && payload.isNotEmpty) {
-          debugPrint('Background notification tapped with payload: $payload');
+          debugPrint(
+            '🔔 Background notification tapped with payload: $payload',
+          );
+          if (onNotificationTapped != null) {
+            onNotificationTapped!(payload);
+          }
         }
       },
     );
