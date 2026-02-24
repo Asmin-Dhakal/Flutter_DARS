@@ -97,6 +97,12 @@ class OrderProvider extends ChangeNotifier {
     setBillingStatusFilter(billing);
   }
 
+  /// Remove an order from the list immediately (for UI updates)
+  void removeOrder(String orderId) {
+    _orders.removeWhere((order) => order.id == orderId);
+    notifyListeners();
+  }
+
   Future<void> nextPage() async {
     if (hasNextPage) {
       await loadOrders(page: _currentPage + 1);

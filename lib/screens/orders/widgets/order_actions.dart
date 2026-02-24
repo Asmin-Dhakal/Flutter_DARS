@@ -95,55 +95,90 @@ class OrderActions {
     String? status,
     required Future<dynamic> Function() apiCall,
   }) async {
-    if (_isProcessing) return;
+    // Prevent multiple concurrent requests
+    if (_isProcessing) {
+      _showError('Operation already in progress. Please wait...');
+      return;
+    }
 
     final config = _actionConfigs[actionKey]!;
 
     // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false, // Prevent accidental dismissal
-      builder: (_) => ModernConfirmDialog(
-        title: config.title,
-        icon: config.icon,
-        iconColor: config.color,
-        message: orderNumber != null
-            ? config.message.replaceAll('{orderNumber}', orderNumber)
-            : config.message,
-        confirmText: config.confirmText,
-        confirmColor: config.color,
-        warning: config.warning,
-        isDestructive: config.isDestructive,
-      ),
-    );
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => ModernConfirmDialog(
+            title: config.title,
+            icon: config.icon,
+            iconColor: config.color,
+            message: orderNumber != null
+                ? config.message.replaceAll('{orderNumber}', orderNumber)
+                : config.message,
+            confirmText: config.confirmText,
+            confirmColor: config.color,
+            warning: config.warning,
+            isDestructive: config.isDestructive,
+          ),
+        ) ??
+        false;
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
+    // Set processing flag BEFORE showing loading
     _isProcessing = true;
-    _showLoading();
 
     try {
+      _showLoading();
+
+      // Execute the API call
       await apiCall();
+
+      // Hide loading dialog
+      if (context.mounted) {
+        _hideLoading();
+      }
 
       // Update Firestore for real-time notifications
       if (status != null) {
         await FirestoreOrderService().updateOrderStatus(orderId, status);
       }
 
-      if (!context.mounted) return;
-      _hideLoading();
+      // Show success message
+      if (context.mounted) {
+        ModernSnackBar.success(context, config.successMessage);
 
-      if (!context.mounted) return;
-      ModernSnackBar.success(context, config.successMessage);
-
-      // Refresh provider
-      context.read<OrderProvider>().loadOrders();
+        // Refresh provider
+        context.read<OrderProvider>().loadOrders();
+      }
     } catch (e) {
-      if (!context.mounted) return;
-      _hideLoading();
+      debugPrint('❌ Error during ${actionKey}: $e');
 
-      if (!context.mounted) return;
-      ModernSnackBar.error(context, 'Error: ${e.toString()}');
+      // Hide loading dialog if still showing
+      if (context.mounted) {
+        try {
+          _hideLoading();
+        } catch (_) {
+          // Ignore if dialog wasn't shown
+        }
+      }
+
+      // Show error message
+      if (context.mounted) {
+        String errorMessage = e.toString();
+
+        // Handle specific Firebase errors
+        if (errorMessage.contains('PERMISSION_DENIED')) {
+          errorMessage =
+              'You do not have permission to ${actionKey} this order';
+        } else if (errorMessage.contains('not-found')) {
+          errorMessage = 'Order not found';
+        } else if (errorMessage.contains('network')) {
+          errorMessage = 'Network error. Please check your connection';
+        }
+
+        ModernSnackBar.error(context, errorMessage);
+      }
     } finally {
       _isProcessing = false;
     }
@@ -170,7 +205,19 @@ class OrderActions {
   }
 
   void _hideLoading() {
-    Navigator.of(context, rootNavigator: true).pop();
+    try {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error closing loading dialog: $e');
+    }
+  }
+
+  void _showError(String message) {
+    if (context.mounted) {
+      ModernSnackBar.error(context, message);
+    }
   }
 }
 

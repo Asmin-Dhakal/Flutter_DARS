@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
 import '../../../providers/order_provider.dart';
+import '../../../services/order_service.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../edit_order/edit_order_screen.dart';
 import 'order_card.dart';
@@ -127,7 +128,12 @@ class _OrderItem extends StatelessWidget {
       direction: DismissDirection.endToStart,
       background: _buildDeleteBackground(),
       confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => actions.delete(order.id, order.orderNumber),
+      onDismissed: (_) {
+        // Remove from provider immediately
+        context.read<OrderProvider>().removeOrder(order.id);
+        // Then delete in background without showing another dialog
+        _performDelete();
+      },
       child: Padding(
         padding: const EdgeInsets.only(bottom: AppTokens.space4),
         child: OrderCard(
@@ -147,6 +153,17 @@ class _OrderItem extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Perform the actual delete without showing another confirmation
+  Future<void> _performDelete() async {
+    try {
+      // Call delete but don't show dialogs since we already confirmed
+      await OrderService.deleteOrder(order.id);
+      debugPrint('✅ Order ${order.orderNumber} deleted successfully');
+    } catch (e) {
+      debugPrint('❌ Error deleting order: $e');
+    }
   }
 
   Widget _buildDeleteBackground() {
