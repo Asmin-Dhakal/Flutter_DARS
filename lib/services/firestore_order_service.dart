@@ -186,6 +186,8 @@ class FirestoreOrderService {
               _showOrderReceivedNotification(data);
             } else if (status == 'completed') {
               _showOrderCompletedNotification(data);
+            } else if (status == 'cancelled') {
+              _showOrderCancelledNotification(data);
             }
 
             // Update cache
@@ -256,6 +258,25 @@ class FirestoreOrderService {
       id: orderNumber.hashCode + 2,
       title: '✅ Order Completed',
       body: 'Order $orderNumber for $customerName is now complete!',
+      payload: payload,
+    );
+  }
+
+  /// Show notification when an order is cancelled
+  void _showOrderCancelledNotification(Map<String, dynamic> data) {
+    final orderNumber = data['orderNumber'] as String;
+    final customerName = data['customerName'] as String;
+    final orderId = data['id'] as String;
+
+    debugPrint('❌ Order cancelled notification: $orderNumber');
+
+    final payload = '$orderId|$orderNumber';
+
+    // Fire and forget - show notification asynchronously
+    _showLocalNotification(
+      id: orderNumber.hashCode + 3,
+      title: '❌ Order Cancelled',
+      body: 'Order $orderNumber for $customerName has been cancelled',
       payload: payload,
     );
   }
