@@ -30,15 +30,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_fonts: ^6.1.0
+  google_fonts: ^8.0.2
   provider: ^6.1.1
-  uuid: ^4.2.1 # For generating unique order IDs
+  uuid: ^4.5.3 # For generating unique order IDs
   http: ^1.1.0 # For API calls
   shared_preferences: ^2.2.2 # For storing token locally
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  firebase_messaging: ^16.1.1
+  cloud_firestore: ^6.1.2
+  flutter_local_notifications: ^20.1.0
+  app_settings: ^7.0.0
 
 dev_dependencies:
   flutter_test:

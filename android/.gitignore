@@ -12,3 +12,15 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+# Firebase configuration
+google-services.json
+firebase.json
+
+# Environment files
+.env
+.env.local
+
+# Build outputs
+build/
+.gradle/
+app/build/

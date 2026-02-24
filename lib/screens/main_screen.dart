@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../core/theme/app_theme.dart';
 import 'orders/orders_tab.dart';
+import 'orders/order_details_page.dart';
 import 'bills/bills_tab.dart';
 import 'games_tab.dart';
+import 'package:restaurant_order_app/services/notification_service.dart';
+import 'package:restaurant_order_app/services/firestore_order_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,6 +19,9 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   int _currentIndex = 0;
   late final List<AnimationController> _animationControllers;
+
+  final NotificationServices _notificationServices = NotificationServices();
+  final FirestoreOrderService _firestoreOrderService = FirestoreOrderService();
 
   final List<Widget> _tabs = [
     const OrdersTab(),
@@ -43,6 +50,23 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _notificationServices.initLocalNotifications(context, RemoteMessage());
+    _notificationServices.requestNotificationPersmissions();
+    _notificationServices.firebaseInit();
+    _notificationServices.handleBackgroundMessage();
+    _notificationServices.isTokenRefresh();
+
+    // Get device token and save to Firestore
+    _notificationServices.getDeviceToken().then(
+      (value) => {debugPrint('✅ Device Token obtained and saved to Firestore')},
+    );
+
+    // Start listening for order changes in Firestore
+    _firestoreOrderService.startListening();
+
+    // Handle notification tap to navigate to order details
+    _setupNotificationTapHandler();
+
     _animationControllers = List.generate(
       _tabs.length,
       (index) =>
@@ -51,8 +75,44 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     _animationControllers[_currentIndex].value = 1.0;
   }
 
+  /// Setup handler for when user taps on a notification
+  void _setupNotificationTapHandler() {
+    _notificationServices.flutterLocalNotificationsPlugin
+        .getNotificationAppLaunchDetails()
+        .then((details) {
+          if (details?.didNotificationLaunchApp ?? false) {
+            // App was launched from notification
+            final payload = details?.notificationResponse?.payload;
+            if (payload != null && payload.isNotEmpty) {
+              _navigateToOrderDetails(payload);
+            }
+          }
+        });
+  }
+
+  /// Navigate to order details page when notification is tapped
+  void _navigateToOrderDetails(String payload) {
+    // Payload format: "orderId|orderNumber"
+    final parts = payload.split('|');
+    if (parts.length == 2) {
+      final orderId = parts[0];
+      final orderNumber = parts[1];
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              OrderDetailsPage(orderId: orderId, orderNumber: orderNumber),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    // Stop listening for order changes
+    _firestoreOrderService.stopListening();
+
     for (final controller in _animationControllers) {
       controller.dispose();
     }

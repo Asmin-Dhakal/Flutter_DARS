@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/order.dart';
@@ -10,13 +11,28 @@ import 'providers/bill_provider.dart';
 import 'services/auth_service.dart';
 import 'services/bill_service.dart';
 import 'services/payment_service.dart';
+import 'services/notification_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart'; // ADD THIS
 import 'screens/orders/edit_order/edit_order_screen.dart';
 import 'core/theme/app_theme.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize background notification handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const MyApp());
+}
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print(message.notification!.title.toString());
+  await Firebase.initializeApp();
+  // Show local notification when app is in background
+  await NotificationServices.showBackgroundNotification(message);
 }
 
 class MyApp extends StatefulWidget {

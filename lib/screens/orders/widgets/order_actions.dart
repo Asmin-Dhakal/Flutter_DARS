@@ -5,6 +5,7 @@ import '../../../core/widgets/modern_dialog.dart';
 import '../../../core/widgets/modern_snackbar.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
+import '../../../services/firestore_order_service.dart';
 import '../../../core/widgets/skeleton.dart';
 
 /// Modern, modular order actions following Material 3 design
@@ -58,6 +59,7 @@ class OrderActions {
   Future<void> receive(String orderId) => _execute(
     actionKey: 'receive',
     orderId: orderId,
+    status: 'received',
     apiCall: () =>
         OrderService.updateOrderStatus(orderId: orderId, status: 'received'),
   );
@@ -65,6 +67,7 @@ class OrderActions {
   Future<void> complete(String orderId) => _execute(
     actionKey: 'complete',
     orderId: orderId,
+    status: 'completed',
     apiCall: () =>
         OrderService.updateOrderStatus(orderId: orderId, status: 'completed'),
   );
@@ -72,6 +75,7 @@ class OrderActions {
   Future<void> cancel(String orderId) => _execute(
     actionKey: 'cancel',
     orderId: orderId,
+    status: 'cancelled',
     apiCall: () =>
         OrderService.updateOrderStatus(orderId: orderId, status: 'cancelled'),
   );
@@ -88,6 +92,7 @@ class OrderActions {
     required String actionKey,
     required String orderId,
     String? orderNumber,
+    String? status,
     required Future<dynamic> Function() apiCall,
   }) async {
     if (_isProcessing) return;
@@ -119,6 +124,11 @@ class OrderActions {
 
     try {
       await apiCall();
+
+      // Update Firestore for real-time notifications
+      if (status != null) {
+        await FirestoreOrderService().updateOrderStatus(orderId, status);
+      }
 
       if (!context.mounted) return;
       _hideLoading();

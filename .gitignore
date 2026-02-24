@@ -47,4 +47,70 @@ app.*.map.json
 
 /upload-keystore.jks
 
+# Firebase and Sensitive Configuration
+google-services.json
+firebase.json
+lib/firebase_options.dart
+.env
+.env.local
+.env.*.local
+
+# API Keys and Secrets
+*.key
+*.pem
+*.jks
+*.keystore
+secrets/
+.secrets/
+
+# Firebase Functions
+firebase_functions/functions/node_modules/
+firebase_functions/functions/.env
+firebase_functions/functions/.env.local
+firebase_functions/functions/.runtimeconfig.json
+
+# Local development
+.local/
+.cache/
+local_settings.json
+settings.local.json
+
+# VS Code extensions and settings
+.vscode/extensions.json
+.vscode/launch.json
+.vscode/settings.json
+
+# Node modules (if any root-level dependencies)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*~
+
+# Windows
+Thumbs.db
+.DS_Store
+
+# IDE specific files
+.classpath
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~
+
+# Build outputs (ensure they're not tracked)
+build/
+dist/
+.gradle/
 

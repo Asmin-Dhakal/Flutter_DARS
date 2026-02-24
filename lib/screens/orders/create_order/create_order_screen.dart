@@ -9,6 +9,7 @@ import '../../../providers/menu_provider.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
+import '../../../services/firestore_order_service.dart';
 import '../../widgets/customer_selector.dart';
 import 'components/order_summary_card.dart';
 import 'components/menu_grid.dart';
@@ -240,6 +241,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             ? null
             : _notesController.text.trim(),
       );
+
+      // Save to Firestore for real-time notifications
+      await FirestoreOrderService().saveOrderToFirestore(order);
 
       if (mounted) {
         ModernSnackBar.success(
