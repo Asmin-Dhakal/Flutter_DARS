@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
+import '../providers/order_provider.dart';
 import 'orders/orders_tab.dart';
 import 'orders/order_details_page.dart';
 import 'bills/bills_tab.dart';
@@ -64,6 +66,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     // Start listening for order changes in Firestore
     _firestoreOrderService.startListening();
 
+    // Connect Firestore listener to OrderProvider for real-time UI sync
+    _setupFirestoreOrderSync();
+
     // Register callback for notification taps
     NotificationServices.onNotificationTapped = _handleNotificationTap;
 
@@ -76,6 +81,38 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           AnimationController(vsync: this, duration: AppTokens.durationFast),
     );
     _animationControllers[_currentIndex].value = 1.0;
+  }
+
+  /// Setup real-time sync between Firestore listener and OrderProvider
+  void _setupFirestoreOrderSync() {
+    _firestoreOrderService.onOrderUpdated = (order, changeType) {
+      // Get OrderProvider from context and update it
+      if (mounted) {
+        try {
+          final orderProvider = Provider.of<OrderProvider>(
+            context,
+            listen: false,
+          );
+
+          switch (changeType) {
+            case 'added':
+              debugPrint('🔄 New order received: ${order.orderNumber}');
+              orderProvider.addOrder(order);
+              break;
+            case 'modified':
+              debugPrint('🔄 Order updated: ${order.orderNumber}');
+              orderProvider.updateOrder(order);
+              break;
+            case 'removed':
+              debugPrint('🔄 Order deleted: ${order.id}');
+              orderProvider.removeOrder(order.id);
+              break;
+          }
+        } catch (e) {
+          debugPrint('⚠️ Failed to sync order with provider: $e');
+        }
+      }
+    };
   }
 
   /// Setup handler for when user taps on a notification

@@ -5,6 +5,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/order.dart' as models;
 import 'notification_service.dart';
 
+/// Callback type for order updates from Firestore listener
+typedef OnOrderUpdated = void Function(models.Order order, String changeType);
+
 /// Service for managing orders in Firestore and handling real-time notifications
 ///
 /// This service:
@@ -12,6 +15,7 @@ import 'notification_service.dart';
 /// - Listens for new orders created by any staff member
 /// - Listens for order status changes (received, completed)
 /// - Shows local notifications for these events
+/// - Notifies listeners of real-time order changes
 class FirestoreOrderService {
   // Singleton pattern
   static final FirestoreOrderService _instance =
@@ -34,6 +38,12 @@ class FirestoreOrderService {
   // Track order statuses to detect changes
   final Map<String, String> _orderStatusCache = {};
 
+  // Track item counts to detect when items are edited
+  final Map<String, int> _orderItemCountCache = {};
+
+  // Track deleted order IDs to avoid duplicate notifications
+  final Set<String> _deletedOrderIds = {};
+
   // Track if we've received the initial snapshot (to avoid notifications for existing orders)
   bool _initialSnapshotReceived = false;
 
@@ -45,6 +55,9 @@ class FirestoreOrderService {
       _notificationService.flutterLocalNotificationsPlugin;
 
   bool _isListening = false;
+
+  // Callback for order updates (for real-time UI sync)
+  OnOrderUpdated? onOrderUpdated;
 
   /// Save an order to Firestore
   ///
@@ -66,7 +79,18 @@ class FirestoreOrderService {
         'createdAt': order.createdAt.toIso8601String(),
         'updatedAt': order.updatedAt?.toIso8601String(),
         'isDeleted': order.isDeleted,
-        // Simplified items for Firestore
+        // Store items as an array for sync across devices
+        'orderedItems': order.orderedItems
+            .map(
+              (item) => {
+                'menuItemId': item.menuItemId,
+                'name': item.name,
+                'quantity': item.quantity,
+                'priceAtOrder': item.priceAtOrder,
+                'billedQuantity': item.billedQuantity,
+              },
+            )
+            .toList(),
         'itemCount': order.orderedItems.length,
       }, SetOptions(merge: true));
 
@@ -90,6 +114,56 @@ class FirestoreOrderService {
       debugPrint('✅ Order $orderId status updated to $status in Firestore');
     } catch (e) {
       debugPrint('⚠️ Failed to update order status in Firestore: $e');
+    }
+  }
+
+  /// Mark an order as deleted (soft delete)
+  ///
+  /// This soft-deletes the order so it propagates to all devices
+  /// The Firestore listener will detect the change and notify OrderProvider
+  Future<void> markOrderAsDeleted(String orderId) async {
+    try {
+      await _ordersCollection.doc(orderId).update({
+        'isDeleted': true,
+        'status': 'deleted',
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('✅ Order $orderId marked as deleted in Firestore');
+    } catch (e) {
+      debugPrint('⚠️ Failed to mark order as deleted in Firestore: $e');
+    }
+  }
+
+  /// Update order items in Firestore
+  ///
+  /// Call this when order items are edited so changes sync to other devices
+  Future<void> updateOrderItems(
+    String orderId,
+    List<models.OrderItem> items,
+    double totalAmount,
+  ) async {
+    try {
+      await _ordersCollection.doc(orderId).update({
+        'orderedItems': items
+            .map(
+              (item) => {
+                'menuItemId': item.menuItemId,
+                'name': item.name,
+                'quantity': item.quantity,
+                'priceAtOrder': item.priceAtOrder,
+                'billedQuantity': item.billedQuantity,
+              },
+            )
+            .toList(),
+        'totalAmount': totalAmount,
+        'itemCount': items.length,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('✅ Order $orderId items updated in Firestore');
+    } catch (e) {
+      debugPrint('⚠️ Failed to update order items in Firestore: $e');
     }
   }
 
@@ -149,9 +223,11 @@ class FirestoreOrderService {
           final data = change.doc.data() as Map<String, dynamic>;
           final orderId = data['id'] as String;
           final status = (data['status'] as String).toLowerCase();
+          final itemCount = data['itemCount'] as int? ?? 0;
 
           _seenOrderIds.add(orderId);
           _orderStatusCache[orderId] = status;
+          _orderItemCountCache[orderId] = itemCount;
         }
       }
       debugPrint('✅ Initial orders loaded: ${_seenOrderIds.length} orders');
@@ -163,6 +239,8 @@ class FirestoreOrderService {
       final data = change.doc.data() as Map<String, dynamic>;
       final orderId = data['id'] as String;
       final status = (data['status'] as String).toLowerCase();
+      final itemCount = data['itemCount'] as int? ?? 0;
+      final isDeleted = data['isDeleted'] as bool? ?? false;
 
       switch (change.type) {
         case DocumentChangeType.added:
@@ -173,15 +251,68 @@ class FirestoreOrderService {
 
             // Show notification for truly new orders (fire and forget)
             _showNewOrderNotification(data);
+
+            // Notify OrderProvider of new order
+            try {
+              final order = _mapFirestoreDataToOrder(data);
+              onOrderUpdated?.call(order, 'added');
+            } catch (e) {
+              debugPrint('⚠️ Failed to map order data: $e');
+            }
           }
           break;
 
         case DocumentChangeType.modified:
-          // Order status changed
-          final cachedStatus = _orderStatusCache[orderId];
+          // Order modified - check for deletion or status change
 
-          if (cachedStatus != null && cachedStatus != status) {
-            // Status changed - check what changed to
+          // Handle soft delete (isDeleted flag set to true)
+          if (isDeleted && !_deletedOrderIds.contains(orderId)) {
+            _deletedOrderIds.add(orderId);
+            _seenOrderIds.remove(orderId);
+            _orderStatusCache.remove(orderId);
+
+            debugPrint('🔄 Order $orderId marked as deleted');
+
+            // Show deletion notification (fire and forget)
+            _showOrderDeletedNotification(data);
+
+            // Notify OrderProvider to remove order
+            onOrderUpdated?.call(
+              models.Order(
+                id: orderId,
+                orderNumber: data['orderNumber'] as String? ?? '',
+                customerName: data['customerName'] as String? ?? 'Unknown',
+                createdBy: data['createdBy'] as String? ?? 'Unknown',
+                status: 'deleted',
+                billingStatus: data['billingStatus'] as String? ?? 'unbilled',
+                orderedItems: [],
+                totalAmount: 0,
+                createdAt: DateTime.now(),
+                isDeleted: true,
+              ),
+              'removed',
+            );
+            break;
+          }
+
+          // Skip if already deleted
+          if (isDeleted) break;
+
+          // Track item count changes (order was edited)
+          final cachedItemCount = _orderItemCountCache[orderId];
+          final itemCountChanged =
+              cachedItemCount != null && cachedItemCount != itemCount;
+
+          // Handle status changes
+          final cachedStatus = _orderStatusCache[orderId];
+          final statusChanged = cachedStatus != null && cachedStatus != status;
+
+          if (statusChanged) {
+            debugPrint(
+              '🔄 Order $orderId status changed: $cachedStatus → $status',
+            );
+
+            // Status changed - show appropriate notification
             if (status == 'received' && cachedStatus == 'notreceived') {
               _showOrderReceivedNotification(data);
             } else if (status == 'completed') {
@@ -193,15 +324,120 @@ class FirestoreOrderService {
             // Update cache
             _orderStatusCache[orderId] = status;
           }
+
+          // Handle item changes (order was edited)
+          if (itemCountChanged) {
+            debugPrint(
+              '🔄 Order $orderId items edited: $cachedItemCount → $itemCount items',
+            );
+
+            // Show edit notification (fire and forget)
+            _showOrderEditedNotification(data);
+
+            // Update item count cache
+            _orderItemCountCache[orderId] = itemCount;
+          }
+
+          // Notify OrderProvider of any changes (status or items)
+          if (statusChanged || itemCountChanged) {
+            try {
+              final order = _mapFirestoreDataToOrder(data);
+              onOrderUpdated?.call(order, 'modified');
+            } catch (e) {
+              debugPrint('⚠️ Failed to map order data: $e');
+            }
+          }
           break;
 
         case DocumentChangeType.removed:
-          // Order deleted - remove from cache
-          _seenOrderIds.remove(orderId);
-          _orderStatusCache.remove(orderId);
+          // Hard delete - order document completely removed from Firestore
+          if (!_deletedOrderIds.contains(orderId)) {
+            _deletedOrderIds.add(orderId);
+            _seenOrderIds.remove(orderId);
+            _orderStatusCache.remove(orderId);
+
+            debugPrint('🔄 Order $orderId deleted from Firestore');
+
+            // Show deletion notification
+            final tempData = <String, dynamic>{
+              'id': orderId,
+              'orderNumber': data['orderNumber'] as String? ?? 'Unknown',
+            };
+            _showOrderDeletedNotification(tempData);
+
+            // Notify OrderProvider of order removal
+            onOrderUpdated?.call(
+              models.Order(
+                id: orderId,
+                orderNumber: data['orderNumber'] as String? ?? '',
+                customerName: data['customerName'] as String? ?? 'Unknown',
+                createdBy: data['createdBy'] as String? ?? 'Unknown',
+                status: 'deleted',
+                billingStatus: data['billingStatus'] as String? ?? 'unbilled',
+                orderedItems: [],
+                totalAmount: 0,
+                createdAt: DateTime.now(),
+                isDeleted: true,
+              ),
+              'removed',
+            );
+          }
           break;
       }
     }
+  }
+
+  /// Map Firestore document data to Order model
+  models.Order _mapFirestoreDataToOrder(Map<String, dynamic> data) {
+    // Reconstruct items from Firestore data
+    final List<models.OrderItem> items = [];
+    final itemsData = data['orderedItems'] as List<dynamic>?;
+    if (itemsData != null) {
+      for (var itemData in itemsData) {
+        final item = itemData as Map<String, dynamic>;
+        items.add(
+          models.OrderItem(
+            menuItemId: item['menuItemId'] as String? ?? '',
+            name: item['name'] as String? ?? 'Unknown Item',
+            quantity: item['quantity'] as int? ?? 1,
+            priceAtOrder: (item['priceAtOrder'] as num?)?.toDouble() ?? 0.0,
+            billedQuantity: item['billedQuantity'] as int? ?? 0,
+          ),
+        );
+      }
+    }
+
+    return models.Order(
+      id: data['id'] as String? ?? '',
+      orderNumber: data['orderNumber'] as String? ?? '',
+      customerName: data['customerName'] as String? ?? 'Unknown',
+      customerId: data['customerId'] as String?,
+      createdBy: data['createdBy'] as String? ?? 'Unknown',
+      createdByEmail: data['createdByEmail'] as String?,
+      status: data['status'] as String? ?? 'notreceived',
+      billingStatus: data['billingStatus'] as String? ?? 'unbilled',
+      orderedItems: items,
+      totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      notes: data['notes'] as String?,
+      createdAt: _parseDateTime(data['createdAt']),
+      updatedAt: _parseDateTime(data['updatedAt']),
+      isDeleted: data['isDeleted'] as bool? ?? false,
+    );
+  }
+
+  /// Parse datetime from Firestore (ISO 8601 string)
+  DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value;
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        debugPrint('⚠️ Failed to parse datetime: $value');
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 
   /// Show notification when a new order is created
@@ -277,6 +513,45 @@ class FirestoreOrderService {
       id: orderNumber.hashCode + 3,
       title: '❌ Order Cancelled',
       body: 'Order $orderNumber for $customerName has been cancelled',
+      payload: payload,
+    );
+  }
+
+  /// Show notification when an order is deleted
+  void _showOrderDeletedNotification(Map<String, dynamic> data) {
+    final orderNumber = data['orderNumber'] as String;
+    final orderId = data['id'] as String;
+
+    debugPrint('🗑️ Order deleted notification: $orderNumber');
+
+    final payload = '$orderId|$orderNumber';
+
+    // Fire and forget - show notification asynchronously
+    _showLocalNotification(
+      id: orderNumber.hashCode + 4,
+      title: '🗑️ Order Deleted',
+      body: 'Order $orderNumber has been removed from the system',
+      payload: payload,
+    );
+  }
+
+  /// Show notification when an order is edited
+  void _showOrderEditedNotification(Map<String, dynamic> data) {
+    final orderNumber = data['orderNumber'] as String;
+    final customerName = data['customerName'] as String;
+    final orderId = data['id'] as String;
+    final itemCount = data['itemCount'] as int? ?? 0;
+
+    debugPrint('✏️ Order edited notification: $orderNumber');
+
+    final payload = '$orderId|$orderNumber';
+
+    // Fire and forget - show notification asynchronously
+    _showLocalNotification(
+      id: orderNumber.hashCode + 5,
+      title: '✏️ Order Updated',
+      body:
+          'Order $orderNumber for $customerName has been edited ($itemCount items)',
       payload: payload,
     );
   }

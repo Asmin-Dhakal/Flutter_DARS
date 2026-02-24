@@ -139,8 +139,12 @@ class OrderActions {
         _hideLoading();
       }
 
-      // Update Firestore for real-time notifications
-      if (status != null) {
+      // Update Firestore for real-time synchronization across devices
+      if (actionKey == 'delete') {
+        // For deletion: mark as deleted in Firestore (soft delete)
+        await FirestoreOrderService().markOrderAsDeleted(orderId);
+      } else if (status != null) {
+        // For status updates: sync the new status
         await FirestoreOrderService().updateOrderStatus(orderId, status);
       }
 
@@ -148,7 +152,7 @@ class OrderActions {
       if (context.mounted) {
         ModernSnackBar.success(context, config.successMessage);
 
-        // Refresh provider
+        // Refresh provider - this will be overridden by real-time updates
         context.read<OrderProvider>().loadOrders();
       }
     } catch (e) {

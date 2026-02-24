@@ -44,6 +44,29 @@ class OrderProvider extends ChangeNotifier {
   // For backward compatibility
   String get statusFilter => 'All';
 
+  /// Add a new order to the list (for real-time sync from Firestore)
+  void addOrder(Order order) {
+    // Check if order already exists
+    final index = _orders.indexWhere((o) => o.id == order.id);
+    if (index >= 0) {
+      // Update existing order
+      _orders[index] = order;
+    } else {
+      // Add new order at the beginning
+      _orders.insert(0, order);
+    }
+    notifyListeners();
+  }
+
+  /// Update an existing order (for real-time sync from Firestore)
+  void updateOrder(Order order) {
+    final index = _orders.indexWhere((o) => o.id == order.id);
+    if (index >= 0) {
+      _orders[index] = order;
+      notifyListeners();
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

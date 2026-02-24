@@ -9,6 +9,7 @@ import '../../../providers/menu_provider.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/order_service.dart';
+import '../../../services/firestore_order_service.dart';
 import '../../widgets/customer_selector.dart';
 import '../create_order/components/menu_grid.dart';
 import '../create_order/components/category_filter.dart';
@@ -297,6 +298,15 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
             ? null
             : _notesController.text.trim(),
       );
+
+      // Sync items to Firestore for real-time sync across devices
+      if (mounted) {
+        await FirestoreOrderService().updateOrderItems(
+          widget.order.id,
+          updatedOrder.orderedItems,
+          updatedOrder.totalAmount,
+        );
+      }
 
       if (mounted) {
         ModernSnackBar.success(
