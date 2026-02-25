@@ -3,8 +3,8 @@ import '../../../../core/theme/app_theme.dart';
 
 class CategoryFilter extends StatelessWidget {
   final List<String> categories;
-  final String selectedCategory;
-  final Function(String) onSelect;
+  final String? selectedCategory;
+  final Function(String?) onSelect;
 
   const CategoryFilter({
     super.key,

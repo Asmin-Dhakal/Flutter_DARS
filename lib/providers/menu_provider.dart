@@ -7,16 +7,16 @@ class MenuProvider with ChangeNotifier {
   List<String> _categories = [];
   bool _isLoading = false;
   String? _error;
-  String _selectedCategory = 'All';
+  String? _selectedCategory;
 
   List<MenuItem> get menuItems => _menuItems;
-  List<String> get categories => ['All', ..._categories];
+  List<String> get categories => _categories;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  String get selectedCategory => _selectedCategory;
+  String? get selectedCategory => _selectedCategory;
 
   List<MenuItem> get filteredItems {
-    if (_selectedCategory == 'All') return _menuItems;
+    if (_selectedCategory == null) return _menuItems;
     return _menuItems
         .where((item) => item.itemType == _selectedCategory)
         .toList();
@@ -38,6 +38,11 @@ class MenuProvider with ChangeNotifier {
           .toSet()
           .toList();
       _categories.sort();
+      
+      // Select first category by default
+      if (_categories.isNotEmpty && _selectedCategory == null) {
+        _selectedCategory = _categories.first;
+      }
 
       _isLoading = false;
       notifyListeners();
@@ -49,7 +54,7 @@ class MenuProvider with ChangeNotifier {
   }
 
   /// Select category
-  void selectCategory(String category) {
+  void selectCategory(String? category) {
     _selectedCategory = category;
     notifyListeners();
   }
