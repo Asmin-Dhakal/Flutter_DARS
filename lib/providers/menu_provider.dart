@@ -38,7 +38,7 @@ class MenuProvider with ChangeNotifier {
           .toSet()
           .toList();
       _categories.sort();
-      
+
       // Select first category by default
       if (_categories.isNotEmpty && _selectedCategory == null) {
         _selectedCategory = _categories.first;
