@@ -8,6 +8,7 @@ import 'providers/customer_provider.dart';
 import 'providers/menu_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/bill_provider.dart';
+import 'providers/game_provider.dart';
 import 'services/auth_service.dart';
 import 'services/bill_service.dart';
 import 'services/payment_service.dart';
@@ -91,6 +92,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => MenuProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => GameProvider()),
         ChangeNotifierProxyProvider<AuthProvider, BillProvider>(
           create: (context) =>
               BillProvider(billService: billService, paymentService: null),
